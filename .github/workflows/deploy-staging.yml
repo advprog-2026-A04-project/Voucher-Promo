@@ -34,4 +34,4 @@ jobs:
           service-ports: "8000:http"
           service-routes: "/:8000"
           service-checks: "8000:http:/health"
-          service-env: "PORT=8000,DB_HOST=${{ secrets.STAGING_DB_HOST }},DB_PORT=${{ secrets.STAGING_DB_PORT }},DB_NAME=${{ secrets.STAGING_DB_NAME }},DB_USER=${{ secrets.STAGING_DB_USER }},DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }},ADMIN_TOKEN=${{ secrets.STAGING_ADMIN_TOKEN }}"
+          service-env: "PORT=8000,APP_TIME_ZONE=Asia/Jakarta,DB_HOST=${{ secrets.STAGING_DB_HOST }},DB_PORT=${{ secrets.STAGING_DB_PORT }},DB_NAME=${{ secrets.STAGING_DB_NAME }},DB_USER=${{ secrets.STAGING_DB_USER }},DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }},ADMIN_TOKEN=${{ secrets.STAGING_ADMIN_TOKEN }}"
