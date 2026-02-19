@@ -39,6 +39,10 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Make Gradle wrapper executable
+        if: matrix.language == 'java-kotlin'
+        run: chmod +x gradlew
+
       - name: Build backend
         if: matrix.language == 'java-kotlin'
         run: ./gradlew :backend:build -x test
