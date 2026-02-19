@@ -15,18 +15,47 @@ Data flow:
 ## Local Setup
 
 ### Prereqs
-- Java 17+ (backend targets Java 17 bytecode; local dev can use newer JDKs).
-- Node.js 20+ (frontend).
-- Docker (for local MySQL and for Testcontainers-backed integration tests).
+- Git
+- Java 17+ (backend targets Java 17 bytecode; local dev can use newer JDKs)
+- Node.js 20+ (frontend)
+- MySQL 8 (pick one):
+  - Docker Desktop + Docker Compose (recommended; easiest)
+  - Install MySQL locally (works, but you must create the DB/user yourself)
+
+Optional:
+- Docker Desktop (required only if you want `docker compose` and Testcontainers-backed tests)
+
+### Install on a New Computer (Quickstart)
+1. Clone this repo.
+2. Start MySQL (Docker Compose recommended).
+3. Run backend (Spring Boot).
+4. Run frontend (Vite dev server).
+5. Open `http://localhost:5173`.
 
 ### Start MySQL
+Option A: Docker Compose (recommended)
 ```bash
 docker compose up -d
 ```
 
+Option B: Local MySQL (no Docker)
+- Create DB + user (example):
+```sql
+CREATE DATABASE voucherpromo;
+CREATE USER 'app'@'%' IDENTIFIED BY 'app';
+GRANT ALL PRIVILEGES ON voucherpromo.* TO 'app'@'%';
+FLUSH PRIVILEGES;
+```
+- Or, if you want to use your existing MySQL `root` user, set `DB_USER=root` and `DB_PASSWORD=...` when running the backend.
+
 ### Run Backend
 ```bash
 ./gradlew :backend:bootRun
+```
+
+Windows PowerShell:
+```powershell
+.\gradlew.bat :backend:bootRun
 ```
 
 Backend defaults to:
@@ -51,6 +80,17 @@ Dev proxy is configured in `frontend/vite.config.ts` so the frontend can call th
 - `/actuator` -> `http://localhost:8080`
 - `/vouchers` -> `http://localhost:8080`
 - `/admin` -> `http://localhost:8080`
+
+### Verify It Works
+- Backend health: `http://localhost:8080/health`
+- Active vouchers (DB-backed): `http://localhost:8080/vouchers/active`
+- Frontend UI: `http://localhost:5173`
+
+### Troubleshooting
+- `Port 8080 was already in use`: stop the other process or run with `PORT=8081` and update `frontend/vite.config.ts` proxy targets.
+- `401 missing or invalid admin token` on `POST /admin/vouchers`: set `ADMIN_TOKEN` and send the same value in `X-Admin-Token`.
+- `403 Forbidden` on POST requests with curl: you must fetch `/csrf` first and send `X-XSRF-TOKEN` (see CSRF section below).
+- `voucher not in active period`: your start/end timestamps must include “now”; if your local/staging time zone differs, set `APP_TIME_ZONE=Asia/Jakarta` (or your preferred zone).
 
 ## Environment Variables
 
