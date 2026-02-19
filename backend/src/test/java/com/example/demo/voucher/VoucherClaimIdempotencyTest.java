@@ -2,23 +2,26 @@ package com.example.demo.voucher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.demo.it.MySqlTestcontainersBase;
 import com.example.demo.voucher.api.dto.ClaimVoucherRequest;
 import com.example.demo.voucher.api.dto.ClaimVoucherResponse;
 import com.example.demo.voucher.domain.DiscountType;
 import com.example.demo.voucher.domain.Voucher;
 import com.example.demo.voucher.domain.VoucherStatus;
+import com.example.demo.voucher.repository.VoucherRedemptionRepository;
 import com.example.demo.voucher.repository.VoucherRepository;
 import com.example.demo.voucher.service.VoucherService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class VoucherClaimIdempotencyTest {
+class VoucherClaimIdempotencyTest extends MySqlTestcontainersBase {
 
     @Autowired
     private VoucherService voucherService;
@@ -27,7 +30,16 @@ class VoucherClaimIdempotencyTest {
     private VoucherRepository voucherRepository;
 
     @Autowired
+    private VoucherRedemptionRepository voucherRedemptionRepository;
+
+    @Autowired
     private Clock clock;
+
+    @BeforeEach
+    void cleanup() {
+        voucherRedemptionRepository.deleteAll();
+        voucherRepository.deleteAll();
+    }
 
     @Test
     void claimSameOrderIdTwice_decrementsQuotaOnce() {
@@ -61,4 +73,3 @@ class VoucherClaimIdempotencyTest {
         assertThat(reloaded.getQuotaRemaining()).isEqualTo(1);
     }
 }
-
