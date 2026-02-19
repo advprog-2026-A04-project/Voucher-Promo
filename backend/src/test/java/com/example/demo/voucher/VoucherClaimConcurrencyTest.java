@@ -78,7 +78,7 @@ class VoucherClaimConcurrencyTest extends MySqlTestcontainersBase {
                             new ClaimVoucherRequest("CONC1", "ORDER-" + idx, new BigDecimal("100.00"))
                     );
                     return resp.success() && !resp.idempotent();
-                } catch (Exception ex) {
+                } catch (IllegalArgumentException ex) {
                     return false;
                 }
             }));
