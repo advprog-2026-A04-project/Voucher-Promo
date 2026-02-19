@@ -41,6 +41,12 @@ This file records meaningful project commits (code/config changes). Commits that
 - 62fd19f ci: fix Gradle wrapper permissions
   - Marks `gradlew` executable and adds `chmod +x gradlew` steps so CI can run Gradle on Linux runners.
 
+- e48ec15 ci: upload backend test reports on failure
+  - Uploads JUnit XML and HTML test reports as artifacts even when backend CI fails, to make debugging faster.
+
+- b5b2058 test: prevent stale Testcontainers DB across classes
+  - Prevents Spring test context reuse across classes so the MySQL container port does not go stale between tests.
+
 - 1d1e601 ci: add PMD analysis workflow
   - Added Gradle PMD config + `pmd.yml` (runs on every push; fails on priority 1-3 violations).
 

@@ -30,7 +30,18 @@ jobs:
       - name: Run tests
         run: ./gradlew :backend:test :backend:jacocoTestReport
 
+      - name: Upload backend test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            backend/build/test-results/test
+            backend/build/reports/tests/test
+          if-no-files-found: warn
+
       - name: Upload JaCoCo HTML report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-html
