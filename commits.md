@@ -43,3 +43,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - e48ec15 ci: upload backend test reports on failure
   - Uploads JUnit XML and HTML test reports as artifacts even when backend CI fails, to make debugging faster.
+
+- b5b2058 test: prevent stale Testcontainers DB across classes
+  - Prevents Spring test context reuse across classes so the MySQL container port does not go stale between tests.
