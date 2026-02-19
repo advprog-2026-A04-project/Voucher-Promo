@@ -34,3 +34,9 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 582362c ci: add Scorecard and security workflows
   - Added OSSF Scorecard SARIF upload, Dependency Review, and CodeQL analysis workflows.
+
+- 1d1e601 ci: add PMD analysis workflow
+  - Added Gradle PMD config + `pmd.yml` (runs on every push; fails on priority 1-3 violations).
+
+- a7a22a6 fix: resolve PMD generic exception catch
+  - Fixed `AvoidCatchingGenericException` violation in `VoucherClaimConcurrencyTest`.
