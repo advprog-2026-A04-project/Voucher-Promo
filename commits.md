@@ -91,3 +91,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 77e2290 fix: make CSRF token match XSRF cookie
   - Uses the non-XOR CSRF token handler so the `XSRF-TOKEN` cookie value can be sent directly as `X-XSRF-TOKEN`.
+
+- 52ce6e1 fix: make voucher window checks time-zone configurable
+  - Aligns voucher active window checks to an app-configured time zone (`APP_TIME_ZONE`) and removes UTC assumptions from tests.
