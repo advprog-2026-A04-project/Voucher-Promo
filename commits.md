@@ -79,3 +79,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 9b95e69 ci: allow scorecard runs on non-main without publish
   - Prevents `workflow_dispatch` runs on feature branches from failing by disabling Scorecard result publishing off `main`.
+
+- 29023d8 fix: add /health endpoint for staging checks
+  - Adds `GET /health` (DB-backed) and switches Koyeb service health check to `/health` for more reliable staging deployments.
