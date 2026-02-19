@@ -37,3 +37,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 3aa5b5e ci: skip dependency review when graph disabled
   - Prevents `dependency-review-action` from failing when GitHub Dependency graph is disabled (auto-skips instead).
+
+- 62fd19f ci: fix Gradle wrapper permissions
+  - Marks `gradlew` executable and adds `chmod +x gradlew` steps so CI can run Gradle on Linux runners.
