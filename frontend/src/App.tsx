@@ -60,8 +60,45 @@ function toDateTimeLocalInputValue(date: Date) {
   )}:${pad(date.getMinutes())}`
 }
 
+const CSRF_COOKIE_NAME = 'XSRF-TOKEN'
+const CSRF_HEADER_NAME = 'X-XSRF-TOKEN'
+const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+function readCookie(name: string): string | null {
+  const prefix = `${name}=`
+  for (const part of document.cookie.split(';')) {
+    const trimmed = part.trim()
+    if (trimmed.startsWith(prefix)) {
+      return trimmed.substring(prefix.length)
+    }
+  }
+  return null
+}
+
+async function ensureCsrfToken(): Promise<string | null> {
+  const existing = readCookie(CSRF_COOKIE_NAME)
+  if (existing) return decodeURIComponent(existing)
+
+  await fetch('/csrf', { credentials: 'same-origin' })
+  const token = readCookie(CSRF_COOKIE_NAME)
+  return token ? decodeURIComponent(token) : null
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
-  const res = await fetch(url, init)
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const headers = new Headers(init?.headers)
+
+  if (!SAFE_HTTP_METHODS.has(method)) {
+    const csrfToken = await ensureCsrfToken()
+    if (csrfToken) headers.set(CSRF_HEADER_NAME, csrfToken)
+  }
+
+  const res = await fetch(url, {
+    ...init,
+    method,
+    headers,
+    credentials: init?.credentials ?? 'same-origin',
+  })
   const text = await res.text()
 
   let json: unknown = null
