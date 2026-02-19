@@ -100,3 +100,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 07fcec0 docs: document APP_TIME_ZONE and staging region
   - Documents `APP_TIME_ZONE` for consistent voucher windows and updates the staging DB region note to match Koyeb deploy.
+
+- 83f22e1 docs: add install and local run instructions
+  - Adds quickstart steps and troubleshooting notes for running on a new computer (with/without Docker).
