@@ -13,3 +13,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 56ab51c feat: add voucher validate, list, and admin create APIs
   - Implemented `GET /vouchers/active`, `POST /vouchers/validate`, and demo `POST /admin/vouchers` (guarded by `X-Admin-Token`).
+
+- 7dc16bb feat: add idempotent voucher claim by orderId
+  - Implemented `POST /vouchers/claim` with idempotency via `voucher_redemptions` unique constraint; added idempotency test.
