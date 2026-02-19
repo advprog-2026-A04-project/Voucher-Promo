@@ -25,3 +25,12 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - e5a9933 feat: add React + Tailwind connectivity test app
   - Added minimal frontend dashboard and forms for voucher create/validate/claim using a Vite dev proxy to the backend.
+
+- ef22139 chore: enable JaCoCo report for backend tests
+  - Added JaCoCo plugin + XML/HTML reports and ensured `jacocoTestReport` runs after tests.
+
+- eaebb7e ci: add backend+frontend GitHub Actions workflow
+  - Added `ci.yml` to run backend tests + frontend lint/build on PRs and feature-branch pushes.
+
+- 582362c ci: add Scorecard and security workflows
+  - Added OSSF Scorecard SARIF upload, Dependency Review, and CodeQL analysis workflows.
