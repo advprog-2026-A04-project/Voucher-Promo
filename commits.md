@@ -40,3 +40,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 62fd19f ci: fix Gradle wrapper permissions
   - Marks `gradlew` executable and adds `chmod +x gradlew` steps so CI can run Gradle on Linux runners.
+
+- e48ec15 ci: upload backend test reports on failure
+  - Uploads JUnit XML and HTML test reports as artifacts even when backend CI fails, to make debugging faster.
