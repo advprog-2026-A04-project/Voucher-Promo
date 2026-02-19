@@ -94,3 +94,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 52ce6e1 fix: make voucher window checks time-zone configurable
   - Aligns voucher active window checks to an app-configured time zone (`APP_TIME_ZONE`) and removes UTC assumptions from tests.
+
+- fa69e89 ci: harden scorecard, pmd, and staging env
+  - Fixes Scorecard permissions syntax, makes PMD run the Gradle wrapper reliably, sets `APP_TIME_ZONE` on Koyeb, and ignores local `.tmp-koyeb*` artifacts.
