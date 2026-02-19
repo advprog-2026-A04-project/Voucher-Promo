@@ -1,6 +1,6 @@
 # Voucher-Promo (Voucher & Promo MVP)
 
-Monorepo that implements a minimal Voucher & Promo module plus a small “connectivity test app” proving **Frontend ↔ Backend ↔ Database** integration end-to-end.
+Monorepo that implements a minimal Voucher & Promo module plus a small "connectivity test app" proving **Frontend <-> Backend <-> Database** integration end-to-end.
 
 ## Architecture
 
@@ -47,9 +47,9 @@ npm run dev
 Open `http://localhost:5173`.
 
 Dev proxy is configured in `frontend/vite.config.ts` so the frontend can call the backend without CORS:
-- `/actuator` → `http://localhost:8080`
-- `/vouchers` → `http://localhost:8080`
-- `/admin` → `http://localhost:8080`
+- `/actuator` -> `http://localhost:8080`
+- `/vouchers` -> `http://localhost:8080`
+- `/admin` -> `http://localhost:8080`
 
 ## Environment Variables
 
@@ -71,6 +71,15 @@ Other:
 curl http://localhost:8080/actuator/health
 ```
 
+### CSRF (Required for POST)
+This backend enables cookie-based CSRF protection. The React frontend handles it automatically.
+
+For `curl`, fetch the CSRF cookie once and then send it as a header on every POST:
+```bash
+curl -s -c cookies.txt http://localhost:8080/csrf > /dev/null
+CSRF=$(awk '$6=="XSRF-TOKEN"{print $7}' cookies.txt)
+```
+
 ### List Active Vouchers
 ```bash
 curl http://localhost:8080/vouchers/active
@@ -83,6 +92,8 @@ Guarded by `X-Admin-Token` header (value comes from `ADMIN_TOKEN` env var).
 curl -X POST http://localhost:8080/admin/vouchers \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: dev-admin-token" \
+  -b cookies.txt \
+  -H "X-XSRF-TOKEN: $CSRF" \
   -d '{
     "code": "DEMO10",
     "discountType": "FIXED",
@@ -98,6 +109,8 @@ curl -X POST http://localhost:8080/admin/vouchers \
 ```bash
 curl -X POST http://localhost:8080/vouchers/validate \
   -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -H "X-XSRF-TOKEN: $CSRF" \
   -d '{ "code": "DEMO10", "orderAmount": 100.00 }'
 ```
 
@@ -107,13 +120,15 @@ Idempotency key: `orderId`.
 ```bash
 curl -X POST http://localhost:8080/vouchers/claim \
   -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -H "X-XSRF-TOKEN: $CSRF" \
   -d '{ "code": "DEMO10", "orderId": "ORDER-001", "orderAmount": 100.00 }'
 ```
 
 ## Voucher Claim Guarantees
 
 - **Idempotency by `orderId`**: redemption records are uniquely constrained by `(voucher_id, order_id)`. Retrying the same `orderId` returns the original discount and does not decrement quota twice.
-- **Concurrency-safe quota**: quota decrement uses an atomic conditional update (`quota_remaining > 0`) so remaining quota never goes negative under race conditions.
+- **Concurrency-safe quota**: the claim transaction takes a row lock (`SELECT ... FOR UPDATE`) on the voucher to serialize concurrent claims and prevent quota leaks/negatives under race conditions.
 
 ## Tests & Coverage
 
@@ -149,7 +164,7 @@ Workflow: `.github/workflows/scorecard.yml`
 ### PMD (Required)
 Workflow: `.github/workflows/pmd.yml`
 - Trigger: every `push` to every branch
-- Fail policy: **fail on any Priority 1–3 violations** (configured in `backend/build.gradle.kts`)
+- Fail policy: **fail on any Priority 1-3 violations** (configured in `backend/build.gradle.kts`)
 
 PMD issue fixed (separate commit):
 - Rule: `AvoidCatchingGenericException`
