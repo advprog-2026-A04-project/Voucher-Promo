@@ -30,7 +30,7 @@ jobs:
           git-builder: docker
           git-docker-dockerfile: Dockerfile
           service-instance-type: nano
-          service-regions: fra
+          service-regions: was
           service-ports: "8000:http"
           service-routes: "/:8000"
           service-checks: "8000:http:/health"
