@@ -88,3 +88,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 7fd6eec fix: deploy staging in was region
   - Switches the Koyeb staging deployment region to `was` to avoid repeated instance start failures in `fra`.
+
+- 77e2290 fix: make CSRF token match XSRF cookie
+  - Uses the non-XOR CSRF token handler so the `XSRF-TOKEN` cookie value can be sent directly as `X-XSRF-TOKEN`.
