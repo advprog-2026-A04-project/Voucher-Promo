@@ -40,3 +40,12 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - a7a22a6 fix: resolve PMD generic exception catch
   - Fixed `AvoidCatchingGenericException` violation in `VoucherClaimConcurrencyTest`.
+
+- f024ea6 chore: add Dockerfile to bundle frontend into backend
+  - Added multi-stage Docker build that compiles the Vite frontend and serves it from Spring Boot static resources.
+
+- 092602a cd: deploy staging to Koyeb on main
+  - Added GitHub Actions workflow to deploy staging on merges to `main` using Dockerfile builds on Koyeb.
+
+- acbff25 docs: add project documentation
+  - Added end-to-end setup docs, API examples, CI/CD explanation, and Module 02 reflection.
