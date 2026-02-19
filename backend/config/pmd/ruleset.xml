@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset
+        xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd"
+        name="Voucher-Promo PMD Rules"
+>
+    <description>
+        Minimal PMD ruleset for Voucher-Promo.
+        Build fails on Priority 1-3 violations (configured in Gradle).
+    </description>
+
+    <rule ref="category/java/design.xml/AvoidCatchingGenericException"/>
+    <rule ref="category/java/errorprone.xml/UseLocaleWithCaseConversions"/>
+</ruleset>
