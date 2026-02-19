@@ -1,0 +1,44 @@
+name: Dependency Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check dependency graph availability
+        id: depgraph
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://api.github.com/repos/${GITHUB_REPOSITORY}/dependency-graph/compare/${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+          code="$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "${url}")"
+
+          if [ "${code}" = "200" ]; then
+            echo "supported=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [ "${code}" = "404" ] || [ "${code}" = "403" ]; then
+            echo "supported=false" >> "${GITHUB_OUTPUT}"
+            echo "Dependency graph is disabled/unsupported (HTTP ${code}). Skipping dependency review."
+            exit 0
+          fi
+
+          echo "Unexpected dependency graph API status: ${code}"
+          exit 1
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        if: steps.depgraph.outputs.supported == 'true'
+
