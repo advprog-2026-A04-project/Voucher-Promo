@@ -56,6 +56,9 @@ This file records meaningful project commits (code/config changes). Commits that
 - a7a22a6 fix: resolve PMD generic exception catch
   - Fixed `AvoidCatchingGenericException` violation in `VoucherClaimConcurrencyTest`.
 
+- c04cf76 security: enable CSRF protection
+  - Enables cookie-based CSRF tokens (SPA-friendly) and adds a `/csrf` endpoint; frontend now sends CSRF header on POST requests.
+
 - f024ea6 chore: add Dockerfile to bundle frontend into backend
   - Added multi-stage Docker build that compiles the Vite frontend and serves it from Spring Boot static resources.
 
