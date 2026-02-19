@@ -11,3 +11,5 @@ This file records meaningful project commits (code/config changes). Commits that
 - dd57f71 feat: add voucher entities and Flyway migrations
   - Added `vouchers` and `voucher_redemptions` tables + JPA entities, and local MySQL `docker-compose.yml`.
 
+- 56ab51c feat: add voucher validate, list, and admin create APIs
+  - Implemented `GET /vouchers/active`, `POST /vouchers/validate`, and demo `POST /admin/vouchers` (guarded by `X-Admin-Token`).
