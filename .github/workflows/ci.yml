@@ -24,6 +24,9 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
       - name: Run tests
         run: ./gradlew :backend:test :backend:jacocoTestReport
 
