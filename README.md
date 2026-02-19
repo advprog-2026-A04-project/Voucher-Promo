@@ -59,6 +59,7 @@ Backend reads DB configuration from environment variables:
 - `DB_NAME`
 - `DB_USER`
 - `DB_PASSWORD`
+- `DB_SSL_MODE` (optional; MySQL `sslMode`, default: `PREFERRED`)
 
 Other:
 - `ADMIN_TOKEN` (demo guard for `POST /admin/vouchers`, default: `dev-admin-token`)
@@ -180,6 +181,14 @@ Workflow: `.github/workflows/deploy-staging.yml`
 - Deploys **only on push to `main`** (after PR merge).
 - Uses Dockerfile-based deployment (`Dockerfile`).
 
+### Provision a Staging MySQL (External)
+Recommended: use a managed MySQL with a public hostname (no IP allowlist), ideally in/near the `fra` (Frankfurt) region to match the Koyeb deployment.
+
+1. Create a MySQL instance (Railway / PlanetScale / Aiven / etc.).
+2. Create a database and a user (username + password).
+3. Note the connection details: host, port, db name, user, password.
+4. If your provider requires TLS, set `DB_SSL_MODE=REQUIRED` (the backend defaults to `PREFERRED`, which works for most managed MySQL providers).
+
 ### Required GitHub Secrets
 - `KOYEB_API_TOKEN`
 - `KOYEB_APP_NAME`
@@ -190,6 +199,10 @@ Workflow: `.github/workflows/deploy-staging.yml`
 - `STAGING_DB_USER`
 - `STAGING_DB_PASSWORD`
 - `STAGING_ADMIN_TOKEN`
+
+Notes:
+- `KOYEB_APP_NAME` and `KOYEB_SERVICE_NAME` should match the names you want in Koyeb (lowercase + hyphens recommended).
+- `STAGING_ADMIN_TOKEN` must match the `X-Admin-Token` header value you will use for `POST /admin/vouchers` on staging.
 
 ### Staging URL
 TBD (set after the first successful deployment).
