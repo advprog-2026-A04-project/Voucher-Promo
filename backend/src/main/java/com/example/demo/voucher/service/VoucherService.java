@@ -70,7 +70,7 @@ public class VoucherService {
         BigDecimal orderAmount = request.orderAmount();
         LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
 
-        Voucher voucher = voucherRepository.findByCode(code).orElse(null);
+        Voucher voucher = voucherRepository.findByCodeForUpdate(code).orElse(null);
         if (voucher == null) {
             return new ClaimVoucherResponse(false, false, code, orderId, orderAmount, null, null, "voucher not found");
         }
@@ -121,14 +121,10 @@ public class VoucherService {
             );
         }
 
-        int updated = voucherRepository.decrementQuotaIfClaimable(voucher.getId(), VoucherStatus.ACTIVE, now);
-        if (updated != 1) {
-            throw new IllegalArgumentException("voucher quota exhausted");
-        }
+        int remainingAfter = voucher.getQuotaRemaining() - 1;
+        voucher.setQuotaRemaining(remainingAfter);
 
-        Voucher savedVoucher = voucherRepository.findById(voucher.getId()).orElseThrow();
-
-        return new ClaimVoucherResponse(true, false, code, orderId, orderAmount, discount, savedVoucher.getQuotaRemaining(), "ok");
+        return new ClaimVoucherResponse(true, false, code, orderId, orderAmount, discount, remainingAfter, "ok");
     }
 
     public ValidateVoucherResponse validateVoucher(ValidateVoucherRequest request) {
