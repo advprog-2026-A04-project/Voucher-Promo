@@ -69,6 +69,7 @@ Other:
 
 ### Health
 ```bash
+curl http://localhost:8080/health
 curl http://localhost:8080/actuator/health
 ```
 
