@@ -1,6 +1,7 @@
 package com.example.demo.web;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Map;
 import javax.sql.DataSource;
 import org.springframework.http.HttpStatus;
@@ -26,10 +27,9 @@ public class HealthController {
             }
 
             return ResponseEntity.ok(Map.of("status", "UP", "db", "UP"));
-        } catch (Exception ex) {
+        } catch (SQLException ex) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(Map.of("status", "DOWN", "db", "DOWN"));
         }
     }
 }
-
