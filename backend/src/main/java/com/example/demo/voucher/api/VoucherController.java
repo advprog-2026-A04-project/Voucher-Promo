@@ -7,6 +7,7 @@ import com.example.demo.voucher.api.dto.ClaimVoucherResponse;
 import com.example.demo.voucher.api.dto.VoucherPublicResponse;
 import com.example.demo.voucher.service.VoucherService;
 import jakarta.validation.Valid;
+import java.util.Locale;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +37,20 @@ public class VoucherController {
 
     @PostMapping("/claim")
     public ClaimVoucherResponse claimVoucher(@Valid @RequestBody ClaimVoucherRequest request) {
-        return voucherService.claimVoucher(request);
+        try {
+            return voucherService.claimVoucher(request);
+        } catch (IllegalArgumentException ex) {
+            return new ClaimVoucherResponse(
+                    false,
+                    false,
+                    request.code().trim().toUpperCase(Locale.ROOT),
+                    request.orderId().trim(),
+                    request.orderAmount(),
+                    null,
+                    null,
+                    ex.getMessage()
+            );
+        }
     }
 }
 

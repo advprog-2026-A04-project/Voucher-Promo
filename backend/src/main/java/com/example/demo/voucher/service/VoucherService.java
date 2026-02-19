@@ -121,8 +121,12 @@ public class VoucherService {
             );
         }
 
-        voucher.setQuotaRemaining(voucher.getQuotaRemaining() - 1);
-        Voucher savedVoucher = voucherRepository.save(voucher);
+        int updated = voucherRepository.decrementQuotaIfClaimable(voucher.getId(), VoucherStatus.ACTIVE, now);
+        if (updated != 1) {
+            throw new IllegalArgumentException("voucher quota exhausted");
+        }
+
+        Voucher savedVoucher = voucherRepository.findById(voucher.getId()).orElseThrow();
 
         return new ClaimVoucherResponse(true, false, code, orderId, orderAmount, discount, savedVoucher.getQuotaRemaining(), "ok");
     }
