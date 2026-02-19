@@ -22,3 +22,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 13ac2c6 test: add DB connectivity and concurrency tests
   - Added DB connectivity smoke test and a parallel-claims test to ensure quota never goes below 0.
+
+- e5a9933 feat: add React + Tailwind connectivity test app
+  - Added minimal frontend dashboard and forms for voucher create/validate/claim using a Vite dev proxy to the backend.
