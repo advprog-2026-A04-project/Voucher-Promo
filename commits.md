@@ -49,3 +49,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - b5b2058 test: prevent stale Testcontainers DB across classes
   - Prevents Spring test context reuse across classes so the MySQL container port does not go stale between tests.
+
+- c04cf76 security: enable CSRF protection
+  - Enables cookie-based CSRF tokens (SPA-friendly) and adds a `/csrf` endpoint; frontend now sends CSRF header on POST requests.
