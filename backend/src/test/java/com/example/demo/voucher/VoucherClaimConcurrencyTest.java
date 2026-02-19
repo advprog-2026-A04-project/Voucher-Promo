@@ -14,7 +14,6 @@ import com.example.demo.voucher.service.VoucherService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -51,7 +50,7 @@ class VoucherClaimConcurrencyTest extends MySqlTestcontainersBase {
 
     @Test
     void quotaOne_parallelClaims_onlyOneSucceeds() throws Exception {
-        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
+        LocalDateTime now = LocalDateTime.now(clock);
 
         Voucher voucher = Voucher.builder()
                 .code("CONC1")

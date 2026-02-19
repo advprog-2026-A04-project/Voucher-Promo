@@ -35,3 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Local-only artifacts created by Koyeb debug scripts
+.tmp-koyeb-*
+.tmp/

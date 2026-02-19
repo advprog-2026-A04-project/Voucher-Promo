@@ -20,6 +20,9 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
       - name: Run PMD (fail on Priority 1-3)
         run: ./gradlew :backend:pmdMain :backend:pmdTest
 

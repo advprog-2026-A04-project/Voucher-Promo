@@ -36,6 +36,7 @@ Backend defaults to:
 - `DB_USER=app`
 - `DB_PASSWORD=app`
 - `PORT=8080`
+- `APP_TIME_ZONE=` (optional; e.g., `Asia/Jakarta` to make voucher start/end windows consistent across environments)
 
 ### Run Frontend (Dev)
 ```bash
@@ -64,6 +65,7 @@ Backend reads DB configuration from environment variables:
 Other:
 - `ADMIN_TOKEN` (demo guard for `POST /admin/vouchers`, default: `dev-admin-token`)
 - `PORT` (server port, default: `8080`)
+- `APP_TIME_ZONE` (optional; time zone for voucher start/end window checks, e.g., `Asia/Jakarta`)
 
 ## API (MVP)
 
@@ -183,7 +185,7 @@ Workflow: `.github/workflows/deploy-staging.yml`
 - Uses Dockerfile-based deployment (`Dockerfile`).
 
 ### Provision a Staging MySQL (External)
-Recommended: use a managed MySQL with a public hostname (no IP allowlist), ideally in/near the `fra` (Frankfurt) region to match the Koyeb deployment.
+Recommended: use a managed MySQL with a public hostname (no IP allowlist), ideally in/near the `was` (Washington) region to match the Koyeb deployment.
 
 1. Create a MySQL instance (Railway / PlanetScale / Aiven / etc.).
 2. Create a database and a user (username + password).

@@ -14,7 +14,6 @@ import com.example.demo.voucher.service.VoucherService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +44,7 @@ class VoucherClaimIdempotencyTest extends MySqlTestcontainersBase {
 
     @Test
     void claimSameOrderIdTwice_decrementsQuotaOnce() {
-        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
+        LocalDateTime now = LocalDateTime.now(clock);
 
         Voucher voucher = Voucher.builder()
                 .code("IDEMPOTENT10")

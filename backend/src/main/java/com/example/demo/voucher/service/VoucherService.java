@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,7 +41,7 @@ public class VoucherService {
     }
 
     public List<VoucherPublicResponse> getActiveVouchers() {
-        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
+        LocalDateTime now = LocalDateTime.now(clock);
         return voucherRepository
                 .findByStatusAndStartAtLessThanEqualAndEndAtGreaterThanEqualAndQuotaRemainingGreaterThan(
                         VoucherStatus.ACTIVE,
@@ -68,7 +67,7 @@ public class VoucherService {
         String code = normalizeCode(request.code());
         String orderId = request.orderId().trim();
         BigDecimal orderAmount = request.orderAmount();
-        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
+        LocalDateTime now = LocalDateTime.now(clock);
 
         Voucher voucher = voucherRepository.findByCodeForUpdate(code).orElse(null);
         if (voucher == null) {
@@ -130,7 +129,7 @@ public class VoucherService {
     public ValidateVoucherResponse validateVoucher(ValidateVoucherRequest request) {
         String code = normalizeCode(request.code());
         BigDecimal orderAmount = request.orderAmount();
-        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
+        LocalDateTime now = LocalDateTime.now(clock);
 
         Voucher voucher = voucherRepository.findByCode(code).orElse(null);
         if (voucher == null) {
