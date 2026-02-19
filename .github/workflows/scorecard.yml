@@ -8,13 +8,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  id-token: write
-  security-events: write
+  read-all
 
 jobs:
   analysis:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,7 +29,8 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          publish_results: true
+          # Publishing is supported only for default branch runs.
+          publish_results: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Upload SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
