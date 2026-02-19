@@ -2,12 +2,16 @@ package com.example.demo.voucher.service;
 
 import com.example.demo.voucher.api.dto.CreateVoucherRequest;
 import com.example.demo.voucher.api.dto.CreateVoucherResponse;
+import com.example.demo.voucher.api.dto.ClaimVoucherRequest;
+import com.example.demo.voucher.api.dto.ClaimVoucherResponse;
 import com.example.demo.voucher.api.dto.ValidateVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherResponse;
 import com.example.demo.voucher.api.dto.VoucherPublicResponse;
 import com.example.demo.voucher.domain.DiscountType;
 import com.example.demo.voucher.domain.Voucher;
+import com.example.demo.voucher.domain.VoucherRedemption;
 import com.example.demo.voucher.domain.VoucherStatus;
+import com.example.demo.voucher.repository.VoucherRedemptionRepository;
 import com.example.demo.voucher.repository.VoucherRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,10 +28,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class VoucherService {
 
     private final VoucherRepository voucherRepository;
+    private final VoucherRedemptionRepository voucherRedemptionRepository;
     private final Clock clock;
 
-    public VoucherService(VoucherRepository voucherRepository, Clock clock) {
+    public VoucherService(
+            VoucherRepository voucherRepository,
+            VoucherRedemptionRepository voucherRedemptionRepository,
+            Clock clock
+    ) {
         this.voucherRepository = voucherRepository;
+        this.voucherRedemptionRepository = voucherRedemptionRepository;
         this.clock = clock;
     }
 
@@ -51,6 +61,70 @@ public class VoucherService {
                         v.getEndAt()
                 ))
                 .toList();
+    }
+
+    @Transactional
+    public ClaimVoucherResponse claimVoucher(ClaimVoucherRequest request) {
+        String code = normalizeCode(request.code());
+        String orderId = request.orderId().trim();
+        BigDecimal orderAmount = request.orderAmount();
+        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
+
+        Voucher voucher = voucherRepository.findByCode(code).orElse(null);
+        if (voucher == null) {
+            return new ClaimVoucherResponse(false, false, code, orderId, orderAmount, null, null, "voucher not found");
+        }
+
+        VoucherRedemption existing = voucherRedemptionRepository
+                .findByVoucherIdAndOrderId(voucher.getId(), orderId)
+                .orElse(null);
+        if (existing != null) {
+            return new ClaimVoucherResponse(
+                    true,
+                    true,
+                    code,
+                    orderId,
+                    existing.getOrderAmount(),
+                    existing.getDiscountApplied(),
+                    voucher.getQuotaRemaining(),
+                    "already claimed for this orderId"
+            );
+        }
+
+        String error = validateVoucherUsability(voucher, orderAmount, now);
+        if (error != null) {
+            return new ClaimVoucherResponse(false, false, code, orderId, orderAmount, null, voucher.getQuotaRemaining(), error);
+        }
+
+        BigDecimal discount = calculateDiscount(orderAmount, voucher.getDiscountType(), voucher.getDiscountValue());
+
+        try {
+            voucherRedemptionRepository.save(VoucherRedemption.builder()
+                    .voucher(voucher)
+                    .orderId(orderId)
+                    .orderAmount(orderAmount)
+                    .discountApplied(discount)
+                    .build());
+        } catch (DataIntegrityViolationException ex) {
+            VoucherRedemption retryExisting = voucherRedemptionRepository
+                    .findByVoucherIdAndOrderId(voucher.getId(), orderId)
+                    .orElseThrow(() -> ex);
+            return new ClaimVoucherResponse(
+                    true,
+                    true,
+                    code,
+                    orderId,
+                    retryExisting.getOrderAmount(),
+                    retryExisting.getDiscountApplied(),
+                    voucher.getQuotaRemaining(),
+                    "already claimed for this orderId"
+            );
+        }
+
+        voucher.setQuotaRemaining(voucher.getQuotaRemaining() - 1);
+        Voucher savedVoucher = voucherRepository.save(voucher);
+
+        return new ClaimVoucherResponse(true, false, code, orderId, orderAmount, discount, savedVoucher.getQuotaRemaining(), "ok");
     }
 
     public ValidateVoucherResponse validateVoucher(ValidateVoucherRequest request) {

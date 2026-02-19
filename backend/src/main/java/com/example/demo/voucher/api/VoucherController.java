@@ -2,6 +2,8 @@ package com.example.demo.voucher.api;
 
 import com.example.demo.voucher.api.dto.ValidateVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherResponse;
+import com.example.demo.voucher.api.dto.ClaimVoucherRequest;
+import com.example.demo.voucher.api.dto.ClaimVoucherResponse;
 import com.example.demo.voucher.api.dto.VoucherPublicResponse;
 import com.example.demo.voucher.service.VoucherService;
 import jakarta.validation.Valid;
@@ -30,6 +32,11 @@ public class VoucherController {
     @PostMapping("/validate")
     public ValidateVoucherResponse validateVoucher(@Valid @RequestBody ValidateVoucherRequest request) {
         return voucherService.validateVoucher(request);
+    }
+
+    @PostMapping("/claim")
+    public ClaimVoucherResponse claimVoucher(@Valid @RequestBody ClaimVoucherRequest request) {
+        return voucherService.claimVoucher(request);
     }
 }
 
