@@ -85,3 +85,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 7d69cb9 fix: satisfy PMD in health endpoint
   - Avoids catching generic exceptions in `HealthController` to comply with the PMD ruleset.
+
+- 7fd6eec fix: deploy staging in was region
+  - Switches the Koyeb staging deployment region to `was` to avoid repeated instance start failures in `fra`.
