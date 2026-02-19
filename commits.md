@@ -70,3 +70,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 6613ec3 docs: update README for CSRF and claim concurrency
   - Updates curl examples to include CSRF tokens and documents the row-lock based claim strategy.
+
+- 0ef1ff1 config: support DB_SSL_MODE for managed MySQL
+  - Makes MySQL TLS configurable via `DB_SSL_MODE` (default: `PREFERRED`) and documents staging DB provisioning/secrets.
