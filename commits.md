@@ -76,3 +76,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 32348a2 ci: fix scorecard workflow permissions
   - Fixes OSSF Scorecard verification by moving write permissions to the job and keeping workflow-level permissions read-only.
+
+- 9b95e69 ci: allow scorecard runs on non-main without publish
+  - Prevents `workflow_dispatch` runs on feature branches from failing by disabling Scorecard result publishing off `main`.
