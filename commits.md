@@ -22,3 +22,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 13ac2c6 test: add DB connectivity and concurrency tests
   - Added DB connectivity smoke test and a parallel-claims test to ensure quota never goes below 0.
+
+- c699e2c fix: prevent deadlocks in voucher claim
+  - Uses a pessimistic row lock during claim to avoid MySQL deadlocks under concurrent requests.
