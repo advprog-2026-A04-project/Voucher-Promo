@@ -103,3 +103,12 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 83f22e1 docs: add install and local run instructions
   - Adds quickstart steps and troubleshooting notes for running on a new computer (with/without Docker).
+
+- 15ef757 test: add unit tests for web and service layers
+  - Adds non-docker unit tests for controllers/security/health and service logic to improve and stabilize coverage locally and in CI.
+
+- 0666708 ci: enforce 100% JaCoCo line coverage
+  - Adds `jacocoTestCoverageVerification` with a 100% line coverage gate (excluding only the `Demo1Application` entry point) and runs it in CI.
+
+- 7fd72f5 ci: restrict scorecard workflow permissions
+  - Uses explicit read-only workflow permissions to satisfy OSSF Scorecard workflow verification requirements.

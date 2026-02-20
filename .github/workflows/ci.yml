@@ -28,7 +28,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run tests
-        run: ./gradlew :backend:test :backend:jacocoTestReport
+        run: ./gradlew :backend:test :backend:jacocoTestReport :backend:jacocoTestCoverageVerification
 
       - name: Upload backend test reports
         if: always()
