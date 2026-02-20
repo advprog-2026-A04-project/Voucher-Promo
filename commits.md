@@ -103,3 +103,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 83f22e1 docs: add install and local run instructions
   - Adds quickstart steps and troubleshooting notes for running on a new computer (with/without Docker).
+
+- 15ef757 test: add unit tests for web and service layers
+  - Adds non-docker unit tests for controllers/security/health and service logic to improve and stabilize coverage locally and in CI.
