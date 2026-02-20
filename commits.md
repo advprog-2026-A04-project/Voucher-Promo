@@ -109,3 +109,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 0666708 ci: enforce 100% JaCoCo line coverage
   - Adds `jacocoTestCoverageVerification` with a 100% line coverage gate (excluding only the `Demo1Application` entry point) and runs it in CI.
+
+- 7fd72f5 ci: restrict scorecard workflow permissions
+  - Uses explicit read-only workflow permissions to satisfy OSSF Scorecard workflow verification requirements.
