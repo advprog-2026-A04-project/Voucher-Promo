@@ -106,3 +106,6 @@ This file records meaningful project commits (code/config changes). Commits that
 
 - 15ef757 test: add unit tests for web and service layers
   - Adds non-docker unit tests for controllers/security/health and service logic to improve and stabilize coverage locally and in CI.
+
+- 0666708 ci: enforce 100% JaCoCo line coverage
+  - Adds `jacocoTestCoverageVerification` with a 100% line coverage gate (excluding only the `Demo1Application` entry point) and runs it in CI.
