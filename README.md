@@ -196,7 +196,7 @@ Report location:
 
 ### CI
 Workflow: `.github/workflows/ci.yml`
-- Triggers: `pull_request` and `push` to non-`main` branches
+- Triggers: `pull_request` and `push` to all branches
 - Backend: Gradle tests + JaCoCo report
 - Frontend: `npm ci`, `npm run lint`, `npm run build`
 
@@ -218,41 +218,32 @@ PMD issue fixed (separate commit):
 - Dependency Review: `.github/workflows/dependency-review.yml`
 - CodeQL: `.github/workflows/codeql.yml`
 
-## CD: Deploy Staging (Koyeb)
+## Branching Model (Staging -> Production)
 
-Workflow: `.github/workflows/deploy-staging.yml`
-- Deploys **only on push to `main`** (after PR merge).
-- Uses Dockerfile-based deployment (`Dockerfile`).
+- `staging`: staging environment (default PR target for feature branches)
+- `main`: production environment (only `staging` may be merged into `main`)
 
-### Provision a Staging MySQL (External)
-Recommended: use a managed MySQL with a public hostname (no IP allowlist), ideally in/near the `was` (Washington) region to match the Koyeb deployment.
+Branching policy check:
+- Workflow: `.github/workflows/pr-policy.yml`
+- Enforces: PRs into `main` must come from `staging`
 
-1. Create a MySQL instance (Railway / PlanetScale / Aiven / etc.).
-2. Create a database and a user (username + password).
-3. Note the connection details: host, port, db name, user, password.
-4. If your provider requires TLS, set `DB_SSL_MODE=REQUIRED` (the backend defaults to `PREFERRED`, which works for most managed MySQL providers).
+Docs:
+- `docs/repo-setup.md`
 
-### Required GitHub Secrets
-- `KOYEB_API_TOKEN`
-- `KOYEB_APP_NAME`
-- `KOYEB_SERVICE_NAME`
-- `STAGING_DB_HOST`
-- `STAGING_DB_PORT`
-- `STAGING_DB_NAME`
-- `STAGING_DB_USER`
-- `STAGING_DB_PASSWORD`
-- `STAGING_ADMIN_TOKEN`
+## CD: Deploy to AWS (ECR + App Runner)
 
-Notes:
-- `KOYEB_APP_NAME` and `KOYEB_SERVICE_NAME` should match the names you want in Koyeb (lowercase + hyphens recommended).
-- `STAGING_ADMIN_TOKEN` must match the `X-Admin-Token` header value you will use for `POST /admin/vouchers` on staging.
+Workflow: `.github/workflows/deploy-aws.yml`
+- Triggers: `push` to `staging` (staging) and `main` (production), after PR merge
+- Pushes image tags (staging): `:staging` and `:staging-${GITHUB_SHA}`
+- Pushes image tags (prod): `:prod` and `:prod-${GITHUB_SHA}`
+- GitHub Environments used: `aws-staging` and `aws-prod`
 
-### Staging URL
-TBD (set after the first successful deployment).
+Docs:
+- `docs/aws-apprunner.md`
 
 ## Module 02 Reflection (CI/CD)
 
-This repository implements Continuous Integration by automatically running repeatable build steps (backend tests + coverage, frontend lint/build, and static analysis) on every pull request and on pushes to feature branches. These checks prevent broken code from being merged by catching compilation issues, failing tests, and code-quality regressions early. The deployment workflow implements Continuous Delivery by providing an automated, production-like deployment to a staging environment that is triggered only after changes are merged into `main`, using secrets for configuration and a Dockerfile for reproducible builds.
+This repository implements Continuous Integration by automatically running repeatable build steps (backend tests + coverage, frontend lint/build, and static analysis) on every pull request and on pushes to branches. These checks prevent broken code from being merged by catching compilation issues, failing tests, and code-quality regressions early. The deployment workflow implements Continuous Delivery by deploying automatically on merges to `staging` (staging environment) and `main` (production environment) using a Dockerfile-based build and AWS.
 
 Quality issue fixed:
 - Strategy: enable a static analysis tool (PMD), observe failures, then fix the reported violation and keep the workflow as a guardrail to prevent regressions.
