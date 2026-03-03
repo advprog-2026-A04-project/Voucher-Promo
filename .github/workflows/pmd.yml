@@ -1,6 +1,7 @@
 name: PMD
 
 on:
+  pull_request:
   push:
 
 permissions:
