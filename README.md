@@ -250,6 +250,15 @@ Notes:
 ### Staging URL
 TBD (set after the first successful deployment).
 
+## CD: Publish Docker Image to AWS ECR
+
+Workflow: `.github/workflows/publish-ecr.yml`
+- Manual trigger (`workflow_dispatch`) to build `Dockerfile` and push to Amazon ECR (`:latest` and `:${GITHUB_SHA}` tags).
+- Intended to be used with AWS services that deploy from ECR (for example: App Runner or ECS).
+
+Docs:
+- `docs/aws-apprunner.md`
+
 ## Module 02 Reflection (CI/CD)
 
 This repository implements Continuous Integration by automatically running repeatable build steps (backend tests + coverage, frontend lint/build, and static analysis) on every pull request and on pushes to feature branches. These checks prevent broken code from being merged by catching compilation issues, failing tests, and code-quality regressions early. The deployment workflow implements Continuous Delivery by providing an automated, production-like deployment to a staging environment that is triggered only after changes are merged into `main`, using secrets for configuration and a Dockerfile for reproducible builds.
