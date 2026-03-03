@@ -9,6 +9,15 @@ Recommended AWS setup for a demo/staging deployment:
 - Run it on **AWS App Runner** (auto-deploy from ECR)
 - Use **Amazon RDS MySQL** for the database
 
+## 0) Branching Model (Staging -> Production)
+
+- `staging` branch: staging environment
+- `main` branch: production environment
+
+Recommended flow:
+1. Feature branches open PRs into `staging`.
+2. Only `staging` opens PR into `main` for production releases.
+
 ## 1) One-time AWS Setup
 
 ### A. Create an ECR repository
@@ -30,15 +39,17 @@ The backend reads these environment variables:
 ### C. Create an App Runner service (from ECR)
 In App Runner:
 1. Source: Container registry -> Amazon ECR.
-2. Image: point to your ECR repo, tag `latest`.
-3. Enable auto-deployments (so every `:latest` push redeploys).
+2. Create **two** services (recommended):
+   - Staging service: image tag `staging`
+   - Production service: image tag `prod`
+3. Enable auto-deployments (so every new image pushed to the configured tag redeploys).
 4. Set runtime environment variables (see section 3).
 
 If your RDS is private (recommended), configure an **App Runner VPC connector** so the service can reach RDS securely.
 
 ## 2) One-time GitHub Setup (for CI/CD to ECR)
 
-Workflow: [publish-ecr.yml](/.github/workflows/publish-ecr.yml)
+Workflow: `.github/workflows/deploy-aws.yml`
 
 ### A. Create an IAM role for GitHub Actions (OIDC)
 Create an IAM Role that trusts GitHub Actions OIDC and has permissions to push to ECR.
@@ -47,11 +58,16 @@ Minimum permissions typically include:
 - `ecr:GetAuthorizationToken`
 - ECR push actions on your repository (e.g. `ecr:PutImage`, `ecr:UploadLayerPart`, etc.)
 
-### B. Add GitHub Environment variables
-In GitHub, create an environment named `aws-staging` and set **Variables**:
+### B. Add GitHub Environments + Variables
+Create 2 GitHub Environments:
+- `aws-staging`
+- `aws-prod`
+
+For each environment, set **Variables**:
 - `AWS_REGION` (e.g. `ap-southeast-1`)
 - `AWS_ROLE_TO_ASSUME` (IAM role ARN created above)
 - `ECR_REPOSITORY` (e.g. `voucher-promo`)
+- `APPRUNNER_SERVICE_ARN` (optional, if you want the workflow to call `start-deployment`)
 
 ## 3) App Runner Environment Variables (runtime)
 
@@ -68,7 +84,8 @@ Set these in the App Runner service:
 
 ## 4) Deploy
 
-1. Merge PR that contains your changes to `main`.
-2. Run the GitHub Action: `Publish Docker Image (AWS ECR)` (manual `workflow_dispatch`).
-3. App Runner will auto-deploy the new `:latest` image.
+1. Merge PR into `staging` to deploy staging automatically.
+2. When ready, open a PR from `staging` -> `main` and merge to deploy production automatically.
 
+Notes:
+- If `AWS_REGION` / `AWS_ROLE_TO_ASSUME` / `ECR_REPOSITORY` are not set yet, the deploy workflow will exit successfully but will skip pushing/deploying until you configure them.

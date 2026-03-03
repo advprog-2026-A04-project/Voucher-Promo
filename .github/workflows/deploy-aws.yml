@@ -1,0 +1,189 @@
+name: Deploy (AWS ECR + App Runner)
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target"
+        type: choice
+        required: true
+        options:
+          - staging
+          - prod
+        default: staging
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  staging:
+    name: Deploy staging
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+    runs-on: ubuntu-latest
+    environment: aws-staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required GitHub Variables
+        id: cfg
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+
+          if [[ -z "${AWS_REGION}" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: AWS_REGION"
+            missing=1
+          fi
+          if [[ -z "${AWS_ROLE_TO_ASSUME}" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: AWS_ROLE_TO_ASSUME"
+            missing=1
+          fi
+          if [[ -z "${ECR_REPOSITORY}" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY"
+            missing=1
+          fi
+
+          if [[ "${missing}" -eq 1 ]]; then
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "AWS deploy is disabled (missing variables)."
+            exit 0
+          fi
+
+          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+
+      - name: Configure AWS credentials (OIDC)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+      - name: Login to Amazon ECR
+        if: steps.cfg.outputs.enabled == 'true'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image (staging)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:staging
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:staging-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger App Runner deployment (staging)
+        if: steps.cfg.outputs.enabled == 'true' && vars.APPRUNNER_SERVICE_ARN != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws apprunner start-deployment --service-arn "${APPRUNNER_SERVICE_ARN}"
+        env:
+          APPRUNNER_SERVICE_ARN: ${{ vars.APPRUNNER_SERVICE_ARN }}
+
+  prod:
+    name: Deploy production
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
+    runs-on: ubuntu-latest
+    environment: aws-prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required GitHub Variables
+        id: cfg
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+
+          if [[ -z "${AWS_REGION}" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: AWS_REGION"
+            missing=1
+          fi
+          if [[ -z "${AWS_ROLE_TO_ASSUME}" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: AWS_ROLE_TO_ASSUME"
+            missing=1
+          fi
+          if [[ -z "${ECR_REPOSITORY}" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY"
+            missing=1
+          fi
+
+          if [[ "${missing}" -eq 1 ]]; then
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "AWS deploy is disabled (missing variables)."
+            exit 0
+          fi
+
+          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+
+      - name: Configure AWS credentials (OIDC)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+      - name: Login to Amazon ECR
+        if: steps.cfg.outputs.enabled == 'true'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image (prod)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:prod
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:prod-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trigger App Runner deployment (prod)
+        if: steps.cfg.outputs.enabled == 'true' && vars.APPRUNNER_SERVICE_ARN != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws apprunner start-deployment --service-arn "${APPRUNNER_SERVICE_ARN}"
+        env:
+          APPRUNNER_SERVICE_ARN: ${{ vars.APPRUNNER_SERVICE_ARN }}
+

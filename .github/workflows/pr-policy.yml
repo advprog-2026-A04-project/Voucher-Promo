@@ -1,0 +1,39 @@
+name: PR Policy
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce branching policy
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${{ github.base_ref }}"
+          head="${{ github.head_ref }}"
+
+          echo "Base branch: ${base}"
+          echo "Head branch: ${head}"
+
+          # Allowed flows:
+          # - feature/* (or any) -> staging
+          # - staging -> main
+          if [[ "${base}" == "main" && "${head}" != "staging" ]]; then
+            echo "::error::Only 'staging' is allowed to merge into 'main'. Create a PR from 'staging' -> 'main'."
+            exit 1
+          fi
+
+          if [[ "${base}" != "main" && "${base}" != "staging" ]]; then
+            echo "::error::PR base branch must be 'staging' (feature -> staging) or 'main' (staging -> main)."
+            exit 1
+          fi
+
+          echo "PR policy OK."
+
