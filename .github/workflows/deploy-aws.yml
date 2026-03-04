@@ -36,7 +36,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate required GitHub Variables
+      - name: Validate required GitHub config (OIDC role or access keys)
         id: cfg
         shell: bash
         run: |
@@ -47,12 +47,18 @@ jobs:
             echo "::warning::Missing GitHub Environment Variable: AWS_REGION"
             missing=1
           fi
-          if [[ -z "${AWS_ROLE_TO_ASSUME}" ]]; then
-            echo "::warning::Missing GitHub Environment Variable: AWS_ROLE_TO_ASSUME"
-            missing=1
-          fi
           if [[ -z "${ECR_REPOSITORY}" ]]; then
             echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY"
+            missing=1
+          fi
+
+          mode=""
+          if [[ -n "${AWS_ROLE_TO_ASSUME}" ]]; then
+            mode="oidc"
+          elif [[ -n "${AWS_ACCESS_KEY_ID}" && -n "${AWS_SECRET_ACCESS_KEY}" ]]; then
+            mode="keys"
+          else
+            echo "::warning::Missing AWS credentials config. Set AWS_ROLE_TO_ASSUME (recommended) OR AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (fallback)."
             missing=1
           fi
 
@@ -63,17 +69,44 @@ jobs:
           fi
 
           echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+
+          has_session_token=false
+          if [[ "${mode}" == "keys" && -n "${AWS_SESSION_TOKEN}" ]]; then
+            has_session_token=true
+          fi
+          echo "has_session_token=${has_session_token}" >> "${GITHUB_OUTPUT}"
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
           ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Configure AWS credentials (OIDC)
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'oidc'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+      - name: Configure AWS credentials (access keys + session token)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Configure AWS credentials (access keys)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'false'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Login to Amazon ECR
         if: steps.cfg.outputs.enabled == 'true'
@@ -117,7 +150,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate required GitHub Variables
+      - name: Validate required GitHub config (OIDC role or access keys)
         id: cfg
         shell: bash
         run: |
@@ -128,12 +161,18 @@ jobs:
             echo "::warning::Missing GitHub Environment Variable: AWS_REGION"
             missing=1
           fi
-          if [[ -z "${AWS_ROLE_TO_ASSUME}" ]]; then
-            echo "::warning::Missing GitHub Environment Variable: AWS_ROLE_TO_ASSUME"
-            missing=1
-          fi
           if [[ -z "${ECR_REPOSITORY}" ]]; then
             echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY"
+            missing=1
+          fi
+
+          mode=""
+          if [[ -n "${AWS_ROLE_TO_ASSUME}" ]]; then
+            mode="oidc"
+          elif [[ -n "${AWS_ACCESS_KEY_ID}" && -n "${AWS_SECRET_ACCESS_KEY}" ]]; then
+            mode="keys"
+          else
+            echo "::warning::Missing AWS credentials config. Set AWS_ROLE_TO_ASSUME (recommended) OR AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (fallback)."
             missing=1
           fi
 
@@ -144,17 +183,44 @@ jobs:
           fi
 
           echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+
+          has_session_token=false
+          if [[ "${mode}" == "keys" && -n "${AWS_SESSION_TOKEN}" ]]; then
+            has_session_token=true
+          fi
+          echo "has_session_token=${has_session_token}" >> "${GITHUB_OUTPUT}"
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
           ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Configure AWS credentials (OIDC)
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'oidc'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+
+      - name: Configure AWS credentials (access keys + session token)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Configure AWS credentials (access keys)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'false'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ vars.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Login to Amazon ECR
         if: steps.cfg.outputs.enabled == 'true'
@@ -186,4 +252,3 @@ jobs:
           aws apprunner start-deployment --service-arn "${APPRUNNER_SERVICE_ARN}"
         env:
           APPRUNNER_SERVICE_ARN: ${{ vars.APPRUNNER_SERVICE_ARN }}
-

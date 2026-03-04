@@ -40,6 +40,9 @@ Suggested required checks:
 - `Backend (Gradle tests + JaCoCo)` (from `.github/workflows/ci.yml`)
 - `Frontend (lint + build)` (from `.github/workflows/ci.yml`)
 - `pmd` (from `.github/workflows/pmd.yml`)
+- `Analyze (java-kotlin)` (from `.github/workflows/codeql.yml`)
+- `Analyze (javascript-typescript)` (from `.github/workflows/codeql.yml`)
+- `dependency-review` (from `.github/workflows/dependency-review.yml`)
 
 For the `main` branch, also require:
 - `policy` (from `.github/workflows/pr-policy.yml`)

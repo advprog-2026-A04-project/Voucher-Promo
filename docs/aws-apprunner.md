@@ -58,6 +58,19 @@ Minimum permissions typically include:
 - `ecr:GetAuthorizationToken`
 - ECR push actions on your repository (e.g. `ecr:PutImage`, `ecr:UploadLayerPart`, etc.)
 
+If your AWS account is restricted (common in classroom/lab environments) and you cannot create the OIDC provider/role,
+use the access keys fallback below.
+
+### A2. Fallback: Use AWS access keys (not recommended for real production)
+If you cannot use OIDC, the workflow can authenticate using access keys stored as GitHub **Environment Secrets**.
+
+In each GitHub Environment (`aws-staging` and `aws-prod`), set Secrets:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SESSION_TOKEN` (optional; required for temporary credentials like AWS Academy labs)
+
+Note: For lab accounts, these credentials usually expire and must be updated each lab session.
+
 ### B. Add GitHub Environments + Variables
 Create 2 GitHub Environments:
 - `aws-staging`
