@@ -47,8 +47,17 @@ jobs:
             echo "::warning::Missing GitHub Environment Variable: AWS_REGION"
             missing=1
           fi
-          if [[ -z "${ECR_REPOSITORY}" ]]; then
-            echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY"
+
+          push_private=false
+          push_public=false
+          if [[ -n "${ECR_REPOSITORY}" ]]; then
+            push_private=true
+          fi
+          if [[ -n "${ECR_PUBLIC_URI}" ]]; then
+            push_public=true
+          fi
+          if [[ "${push_private}" == "false" && "${push_public}" == "false" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY or ECR_PUBLIC_URI"
             missing=1
           fi
 
@@ -70,6 +79,8 @@ jobs:
 
           echo "enabled=true" >> "${GITHUB_OUTPUT}"
           echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+          echo "push_private=${push_private}" >> "${GITHUB_OUTPUT}"
+          echo "push_public=${push_public}" >> "${GITHUB_OUTPUT}"
 
           has_session_token=false
           if [[ "${mode}" == "keys" && -n "${AWS_SESSION_TOKEN}" ]]; then
@@ -80,6 +91,7 @@ jobs:
           AWS_REGION: ${{ vars.AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
           ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          ECR_PUBLIC_URI: ${{ vars.ECR_PUBLIC_URI }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
@@ -108,14 +120,59 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Login to Amazon ECR
-        if: steps.cfg.outputs.enabled == 'true'
-        id: ecr
+      - name: Login to Amazon ECR (private)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_private == 'true'
+        id: ecr_private
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Login to Amazon ECR Public
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_public == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Set up Docker Buildx
         if: steps.cfg.outputs.enabled == 'true'
         uses: docker/setup-buildx-action@v3
+
+      - name: Compute image tags (staging)
+        if: steps.cfg.outputs.enabled == 'true'
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags=()
+
+          if [[ "${PUSH_PRIVATE}" == "true" ]]; then
+            if [[ -z "${PRIVATE_REGISTRY}" || -z "${ECR_REPOSITORY}" ]]; then
+              echo "::error::Internal config error: private ECR enabled but registry/repository missing."
+              exit 1
+            fi
+            tags+=( "${PRIVATE_REGISTRY}/${ECR_REPOSITORY}:staging" )
+            tags+=( "${PRIVATE_REGISTRY}/${ECR_REPOSITORY}:staging-${GITHUB_SHA}" )
+          fi
+
+          if [[ "${PUSH_PUBLIC}" == "true" ]]; then
+            if [[ -z "${ECR_PUBLIC_URI}" ]]; then
+              echo "::error::Internal config error: public ECR enabled but ECR_PUBLIC_URI missing."
+              exit 1
+            fi
+            tags+=( "${ECR_PUBLIC_URI}:staging" )
+            tags+=( "${ECR_PUBLIC_URI}:staging-${GITHUB_SHA}" )
+          fi
+
+          {
+            echo "tags<<EOF"
+            printf '%s\n' "${tags[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          PUSH_PRIVATE: ${{ steps.cfg.outputs.push_private }}
+          PUSH_PUBLIC: ${{ steps.cfg.outputs.push_public }}
+          PRIVATE_REGISTRY: ${{ steps.ecr_private.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          ECR_PUBLIC_URI: ${{ vars.ECR_PUBLIC_URI }}
 
       - name: Build and push image (staging)
         if: steps.cfg.outputs.enabled == 'true'
@@ -124,9 +181,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:staging
-            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:staging-${{ github.sha }}
+          tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -161,8 +216,17 @@ jobs:
             echo "::warning::Missing GitHub Environment Variable: AWS_REGION"
             missing=1
           fi
-          if [[ -z "${ECR_REPOSITORY}" ]]; then
-            echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY"
+
+          push_private=false
+          push_public=false
+          if [[ -n "${ECR_REPOSITORY}" ]]; then
+            push_private=true
+          fi
+          if [[ -n "${ECR_PUBLIC_URI}" ]]; then
+            push_public=true
+          fi
+          if [[ "${push_private}" == "false" && "${push_public}" == "false" ]]; then
+            echo "::warning::Missing GitHub Environment Variable: ECR_REPOSITORY or ECR_PUBLIC_URI"
             missing=1
           fi
 
@@ -184,6 +248,8 @@ jobs:
 
           echo "enabled=true" >> "${GITHUB_OUTPUT}"
           echo "mode=${mode}" >> "${GITHUB_OUTPUT}"
+          echo "push_private=${push_private}" >> "${GITHUB_OUTPUT}"
+          echo "push_public=${push_public}" >> "${GITHUB_OUTPUT}"
 
           has_session_token=false
           if [[ "${mode}" == "keys" && -n "${AWS_SESSION_TOKEN}" ]]; then
@@ -194,6 +260,7 @@ jobs:
           AWS_REGION: ${{ vars.AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
           ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          ECR_PUBLIC_URI: ${{ vars.ECR_PUBLIC_URI }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
@@ -222,14 +289,59 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Login to Amazon ECR
-        if: steps.cfg.outputs.enabled == 'true'
-        id: ecr
+      - name: Login to Amazon ECR (private)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_private == 'true'
+        id: ecr_private
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Login to Amazon ECR Public
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_public == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Set up Docker Buildx
         if: steps.cfg.outputs.enabled == 'true'
         uses: docker/setup-buildx-action@v3
+
+      - name: Compute image tags (prod)
+        if: steps.cfg.outputs.enabled == 'true'
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags=()
+
+          if [[ "${PUSH_PRIVATE}" == "true" ]]; then
+            if [[ -z "${PRIVATE_REGISTRY}" || -z "${ECR_REPOSITORY}" ]]; then
+              echo "::error::Internal config error: private ECR enabled but registry/repository missing."
+              exit 1
+            fi
+            tags+=( "${PRIVATE_REGISTRY}/${ECR_REPOSITORY}:prod" )
+            tags+=( "${PRIVATE_REGISTRY}/${ECR_REPOSITORY}:prod-${GITHUB_SHA}" )
+          fi
+
+          if [[ "${PUSH_PUBLIC}" == "true" ]]; then
+            if [[ -z "${ECR_PUBLIC_URI}" ]]; then
+              echo "::error::Internal config error: public ECR enabled but ECR_PUBLIC_URI missing."
+              exit 1
+            fi
+            tags+=( "${ECR_PUBLIC_URI}:prod" )
+            tags+=( "${ECR_PUBLIC_URI}:prod-${GITHUB_SHA}" )
+          fi
+
+          {
+            echo "tags<<EOF"
+            printf '%s\n' "${tags[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        env:
+          PUSH_PRIVATE: ${{ steps.cfg.outputs.push_private }}
+          PUSH_PUBLIC: ${{ steps.cfg.outputs.push_public }}
+          PRIVATE_REGISTRY: ${{ steps.ecr_private.outputs.registry }}
+          ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          ECR_PUBLIC_URI: ${{ vars.ECR_PUBLIC_URI }}
 
       - name: Build and push image (prod)
         if: steps.cfg.outputs.enabled == 'true'
@@ -238,9 +350,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:prod
-            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:prod-${{ github.sha }}
+          tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
