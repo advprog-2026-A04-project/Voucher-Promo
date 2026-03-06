@@ -285,4 +285,6 @@ See `commits.md`.
 ## Screenshot
 <img width="2464" height="1369" alt="Screenshot 2026-02-20 170805" src="https://github.com/user-attachments/assets/b284ca22-c00a-4452-b193-cfe795fe6ae9" />
 
+##Link
+http://18.232.174.224/
 
