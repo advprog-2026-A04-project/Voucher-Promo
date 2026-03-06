@@ -90,7 +90,7 @@ Dev proxy is configured in `frontend/vite.config.ts` so the frontend can call th
 - `Port 8080 was already in use`: stop the other process or run with `PORT=8081` and update `frontend/vite.config.ts` proxy targets.
 - `401 missing or invalid admin token` on `POST /admin/vouchers`: set `ADMIN_TOKEN` and send the same value in `X-Admin-Token`.
 - `403 Forbidden` on POST requests with curl: you must fetch `/csrf` first and send `X-XSRF-TOKEN` (see CSRF section below).
-- `voucher not in active period`: your start/end timestamps must include “now”; if your local/staging time zone differs, set `APP_TIME_ZONE=Asia/Jakarta` (or your preferred zone).
+- `voucher not in active period`: your start/end timestamps must include "now"; if your local/staging time zone differs, set `APP_TIME_ZONE=Asia/Jakarta` (or your preferred zone).
 
 ## Environment Variables
 
@@ -109,31 +109,61 @@ Other:
 
 ## API (MVP)
 
+Full documentation: `docs/api.md`
+
+### Base URL
+- Local: `http://localhost:8080`
+- Deployed: `http://<host>` (ask for the current staging/prod URL)
+
 ### Health
 ```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/actuator/health
+BASE_URL="http://localhost:8080"
+curl "$BASE_URL/health"
+curl "$BASE_URL/actuator/health"
 ```
 
 ### CSRF (Required for POST)
 This backend enables cookie-based CSRF protection. The React frontend handles it automatically.
 
-For `curl`, fetch the CSRF cookie once and then send it as a header on every POST:
+For non-browser clients, every `POST` must include:
+- Cookie: `XSRF-TOKEN=<token>`
+- Header: `X-XSRF-TOKEN: <token>`
+
+Fetch the CSRF cookie + token once and reuse it:
 ```bash
-curl -s -c cookies.txt http://localhost:8080/csrf > /dev/null
-CSRF=$(awk '$6=="XSRF-TOKEN"{print $7}' cookies.txt)
+BASE_URL="http://localhost:8080"
+
+# Option A (recommended): parse the token from /csrf JSON with Python
+CSRF=$(
+  curl -s -c cookies.txt "$BASE_URL/csrf" \
+  | python -c "import sys,json; print(json.load(sys.stdin)['token'])"
+)
+
+# Option B: parse the token from cookies.txt (bash + awk)
+# curl -s -c cookies.txt "$BASE_URL/csrf" > /dev/null
+# CSRF=$(awk '$6==\"XSRF-TOKEN\"{print $7}' cookies.txt)
+```
+
+Windows PowerShell example:
+```powershell
+$BaseUrl = "http://localhost:8080"
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$csrf = (Invoke-RestMethod "$BaseUrl/csrf" -WebSession $session).token
+Invoke-RestMethod "$BaseUrl/vouchers/validate" -Method Post -WebSession $session `
+  -Headers @{ "X-XSRF-TOKEN" = $csrf } -ContentType "application/json" `
+  -Body '{ "code": "DEMO10", "orderAmount": 100.00 }'
 ```
 
 ### List Active Vouchers
 ```bash
-curl http://localhost:8080/vouchers/active
+curl "$BASE_URL/vouchers/active"
 ```
 
 ### Admin: Create Voucher (Demo)
 Guarded by `X-Admin-Token` header (value comes from `ADMIN_TOKEN` env var).
 
 ```bash
-curl -X POST http://localhost:8080/admin/vouchers \
+curl -X POST "$BASE_URL/admin/vouchers" \
   -H "Content-Type: application/json" \
   -H "X-Admin-Token: dev-admin-token" \
   -b cookies.txt \
@@ -151,7 +181,7 @@ curl -X POST http://localhost:8080/admin/vouchers \
 
 ### Validate Voucher
 ```bash
-curl -X POST http://localhost:8080/vouchers/validate \
+curl -X POST "$BASE_URL/vouchers/validate" \
   -H "Content-Type: application/json" \
   -b cookies.txt \
   -H "X-XSRF-TOKEN: $CSRF" \
@@ -162,7 +192,7 @@ curl -X POST http://localhost:8080/vouchers/validate \
 Idempotency key: `orderId`.
 
 ```bash
-curl -X POST http://localhost:8080/vouchers/claim \
+curl -X POST "$BASE_URL/vouchers/claim" \
   -H "Content-Type: application/json" \
   -b cookies.txt \
   -H "X-XSRF-TOKEN: $CSRF" \

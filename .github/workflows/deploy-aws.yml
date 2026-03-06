@@ -98,6 +98,8 @@ jobs:
 
       - name: Configure AWS credentials (OIDC)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'oidc'
+        id: aws_creds_oidc
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
@@ -105,6 +107,8 @@ jobs:
 
       - name: Configure AWS credentials (access keys + session token)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'true'
+        id: aws_creds_keys_session
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
@@ -114,30 +118,54 @@ jobs:
 
       - name: Configure AWS credentials (access keys)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'false'
+        id: aws_creds_keys
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+      - name: Check AWS auth
+        id: auth
+        if: steps.cfg.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ok=false
+          if [[ "${{ steps.aws_creds_oidc.outcome }}" == "success" ]] || \
+             [[ "${{ steps.aws_creds_keys_session.outcome }}" == "success" ]] || \
+             [[ "${{ steps.aws_creds_keys.outcome }}" == "success" ]]; then
+            ok=true
+          fi
+
+          echo "ok=${ok}" >> "${GITHUB_OUTPUT}"
+
+      - name: Skip deploy (AWS auth failed)
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok != 'true'
+        shell: bash
+        run: |
+          echo "::warning::AWS credentials are present but authentication failed (expired/invalid). Skipping deploy."
+
       - name: Login to Amazon ECR (private)
-        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_private == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true' && steps.cfg.outputs.push_private == 'true'
         id: ecr_private
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Login to Amazon ECR Public
-        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_public == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true' && steps.cfg.outputs.push_public == 'true'
         shell: bash
         run: |
           set -euo pipefail
           aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Set up Docker Buildx
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Compute image tags (staging)
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true'
         id: tags
         shell: bash
         run: |
@@ -175,7 +203,7 @@ jobs:
           ECR_PUBLIC_URI: ${{ vars.ECR_PUBLIC_URI }}
 
       - name: Build and push image (staging)
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -186,7 +214,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trigger App Runner deployment (staging)
-        if: steps.cfg.outputs.enabled == 'true' && vars.APPRUNNER_SERVICE_ARN != ''
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true' && vars.APPRUNNER_SERVICE_ARN != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -267,6 +295,8 @@ jobs:
 
       - name: Configure AWS credentials (OIDC)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'oidc'
+        id: aws_creds_oidc
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
@@ -274,6 +304,8 @@ jobs:
 
       - name: Configure AWS credentials (access keys + session token)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'true'
+        id: aws_creds_keys_session
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
@@ -283,30 +315,54 @@ jobs:
 
       - name: Configure AWS credentials (access keys)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.mode == 'keys' && steps.cfg.outputs.has_session_token == 'false'
+        id: aws_creds_keys
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ vars.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+      - name: Check AWS auth
+        id: auth
+        if: steps.cfg.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ok=false
+          if [[ "${{ steps.aws_creds_oidc.outcome }}" == "success" ]] || \
+             [[ "${{ steps.aws_creds_keys_session.outcome }}" == "success" ]] || \
+             [[ "${{ steps.aws_creds_keys.outcome }}" == "success" ]]; then
+            ok=true
+          fi
+
+          echo "ok=${ok}" >> "${GITHUB_OUTPUT}"
+
+      - name: Skip deploy (AWS auth failed)
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok != 'true'
+        shell: bash
+        run: |
+          echo "::warning::AWS credentials are present but authentication failed (expired/invalid). Skipping deploy."
+
       - name: Login to Amazon ECR (private)
-        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_private == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true' && steps.cfg.outputs.push_private == 'true'
         id: ecr_private
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Login to Amazon ECR Public
-        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.push_public == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true' && steps.cfg.outputs.push_public == 'true'
         shell: bash
         run: |
           set -euo pipefail
           aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Set up Docker Buildx
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Compute image tags (prod)
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true'
         id: tags
         shell: bash
         run: |
@@ -344,7 +400,7 @@ jobs:
           ECR_PUBLIC_URI: ${{ vars.ECR_PUBLIC_URI }}
 
       - name: Build and push image (prod)
-        if: steps.cfg.outputs.enabled == 'true'
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -355,7 +411,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trigger App Runner deployment (prod)
-        if: steps.cfg.outputs.enabled == 'true' && vars.APPRUNNER_SERVICE_ARN != ''
+        if: steps.cfg.outputs.enabled == 'true' && steps.auth.outputs.ok == 'true' && vars.APPRUNNER_SERVICE_ARN != ''
         shell: bash
         run: |
           set -euo pipefail
