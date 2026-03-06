@@ -20,10 +20,19 @@ Recommended flow:
 
 ## 1) One-time AWS Setup
 
-### A. Create an ECR repository
-Create a repo (example name: `voucher-promo`).
+### A. Create a container registry repo
 
-You will use this as `${ECR_REPOSITORY}` in GitHub.
+Option 1 (default): **Private ECR**
+- Create a private ECR repo (example name: `voucher-promo`).
+- Use this as `ECR_REPOSITORY` in GitHub.
+
+Option 2 (restricted labs): **ECR Public** (no IAM role needed for App Runner to pull)
+- Create an ECR Public repo (example name: `voucher-promo`).
+- Copy the repository URI that looks like `public.ecr.aws/<alias>/voucher-promo` and store it as `ECR_PUBLIC_URI` in GitHub.
+
+Notes:
+- The deploy workflow pushes stable tags `:staging` and `:prod` (plus SHA tags).
+- In App Runner, point the staging service to `...:staging` and the prod service to `...:prod`.
 
 ### B. Create the database (RDS MySQL)
 Create an RDS MySQL instance and note:
@@ -38,7 +47,7 @@ The backend reads these environment variables:
 
 ### C. Create an App Runner service (from ECR)
 In App Runner:
-1. Source: Container registry -> Amazon ECR.
+1. Source: Container registry -> Amazon ECR (private) **or** Amazon ECR Public.
 2. Create **two** services (recommended):
    - Staging service: image tag `staging`
    - Production service: image tag `prod`
@@ -79,7 +88,8 @@ Create 2 GitHub Environments:
 For each environment, set **Variables**:
 - `AWS_REGION` (e.g. `ap-southeast-1`)
 - `AWS_ROLE_TO_ASSUME` (IAM role ARN created above)
-- `ECR_REPOSITORY` (e.g. `voucher-promo`)
+- `ECR_REPOSITORY` (optional; private ECR repo name, e.g. `voucher-promo`)
+- `ECR_PUBLIC_URI` (optional; ECR Public repo URI like `public.ecr.aws/<alias>/voucher-promo`)
 - `APPRUNNER_SERVICE_ARN` (optional, if you want the workflow to call `start-deployment`)
 
 ## 3) App Runner Environment Variables (runtime)
