@@ -4,6 +4,7 @@ import com.example.demo.voucher.api.dto.CreateVoucherRequest;
 import com.example.demo.voucher.api.dto.CreateVoucherResponse;
 import com.example.demo.voucher.api.dto.ClaimVoucherRequest;
 import com.example.demo.voucher.api.dto.ClaimVoucherResponse;
+import com.example.demo.voucher.api.dto.EditVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherResponse;
 import com.example.demo.voucher.api.dto.VoucherPublicResponse;
@@ -188,6 +189,53 @@ public class VoucherService {
                 saved.getQuotaRemaining(),
                 saved.getStatus()
         );
+    }
+
+    @Transactional
+    public CreateVoucherResponse editVoucher(Long id, EditVoucherRequest request) {
+        if (!request.endAt().isAfter(request.startAt())) {
+            throw new IllegalArgumentException("endAt must be after startAt");
+        }
+        if (request.discountType() == DiscountType.PERCENT
+                && request.discountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("percent discount must be <= 100");
+        }
+
+        Voucher voucher = voucherRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("voucher not found"));
+
+        int claimed = voucher.getQuotaTotal() - voucher.getQuotaRemaining();
+        if (request.quotaTotal() < claimed) {
+            throw new IllegalArgumentException("new quotaTotal cannot be less than already claimed quota (" + claimed + ")");
+        }
+
+        voucher.setDiscountType(request.discountType());
+        voucher.setDiscountValue(request.discountValue());
+        voucher.setStartAt(request.startAt());
+        voucher.setEndAt(request.endAt());
+        voucher.setMinSpend(request.minSpend());
+        voucher.setQuotaTotal(request.quotaTotal());
+        voucher.setQuotaRemaining(request.quotaTotal() - claimed);
+
+        return new CreateVoucherResponse(
+                voucher.getId(),
+                voucher.getCode(),
+                voucher.getDiscountType(),
+                voucher.getDiscountValue(),
+                voucher.getStartAt(),
+                voucher.getEndAt(),
+                voucher.getMinSpend(),
+                voucher.getQuotaTotal(),
+                voucher.getQuotaRemaining(),
+                voucher.getStatus()
+        );
+    }
+
+    @Transactional
+    public void disableVoucher(Long id) {
+        Voucher voucher = voucherRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("voucher not found"));
+        voucher.setStatus(VoucherStatus.INACTIVE);
     }
 
     private static String normalizeCode(String code) {

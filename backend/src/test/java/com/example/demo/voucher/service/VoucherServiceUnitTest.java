@@ -10,6 +10,7 @@ import com.example.demo.voucher.api.dto.ClaimVoucherRequest;
 import com.example.demo.voucher.api.dto.ClaimVoucherResponse;
 import com.example.demo.voucher.api.dto.CreateVoucherRequest;
 import com.example.demo.voucher.api.dto.CreateVoucherResponse;
+import com.example.demo.voucher.api.dto.EditVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherResponse;
 import com.example.demo.voucher.api.dto.VoucherPublicResponse;
@@ -448,5 +449,147 @@ class VoucherServiceUnitTest {
         CreateVoucherResponse resp = voucherService.createVoucher(req);
         assertThat(resp.code()).isEqualTo("DEMO10");
         assertThat(resp.id()).isEqualTo(99L);
+    }
+    @Test
+    void editVoucher_whenNotFound_throws() {
+        when(voucherRepository.findById(1L)).thenReturn(Optional.empty());
+
+        EditVoucherRequest req = new EditVoucherRequest(
+                DiscountType.FIXED,
+                new BigDecimal("10.00"),
+                LocalDateTime.parse("2026-02-19T00:00:00"),
+                LocalDateTime.parse("2026-02-20T00:00:00"),
+                null,
+                5
+        );
+
+        assertThatThrownBy(() -> voucherService.editVoucher(1L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("voucher not found");
+    }
+
+    @Test
+    void editVoucher_whenEndAtNotAfterStartAt_throws() {
+        Voucher voucher = Voucher.builder().id(1L).build();
+        when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
+
+        EditVoucherRequest req = new EditVoucherRequest(
+                DiscountType.FIXED,
+                new BigDecimal("10.00"),
+                LocalDateTime.parse("2026-02-19T00:00:00"),
+                LocalDateTime.parse("2026-02-19T00:00:00"),
+                null,
+                5
+        );
+
+        assertThatThrownBy(() -> voucherService.editVoucher(1L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("endAt must be after startAt");
+    }
+
+    @Test
+    void editVoucher_whenPercentAbove100_throws() {
+        Voucher voucher = Voucher.builder().id(1L).build();
+        when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
+
+        EditVoucherRequest req = new EditVoucherRequest(
+                DiscountType.PERCENT,
+                new BigDecimal("101"),
+                LocalDateTime.parse("2026-02-19T00:00:00"),
+                LocalDateTime.parse("2026-02-20T00:00:00"),
+                null,
+                5
+        );
+
+        assertThatThrownBy(() -> voucherService.editVoucher(1L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("percent discount must be <= 100");
+    }
+
+    @Test
+    void editVoucher_whenQuotaTotalLessThanClaimed_throws() {
+        Voucher voucher = Voucher.builder()
+                .id(1L)
+                .quotaTotal(10)
+                .quotaRemaining(5) // claimed = 5
+                .build();
+        when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
+
+        EditVoucherRequest req = new EditVoucherRequest(
+                DiscountType.FIXED,
+                new BigDecimal("10.00"),
+                LocalDateTime.parse("2026-02-19T00:00:00"),
+                LocalDateTime.parse("2026-02-20T00:00:00"),
+                null,
+                4 // < 5
+        );
+
+        assertThatThrownBy(() -> voucherService.editVoucher(1L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("new quotaTotal cannot be less than already claimed quota");
+    }
+
+    @Test
+    void editVoucher_success_updatesAndReturns() {
+        Voucher voucher = Voucher.builder()
+                .id(1L)
+                .code("DEMO10")
+                .discountType(DiscountType.FIXED)
+                .discountValue(new BigDecimal("10.00"))
+                .startAt(LocalDateTime.parse("2026-02-19T00:00:00"))
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
+                .minSpend(null)
+                .quotaTotal(10)
+                .quotaRemaining(5) // claimed = 5
+                .status(VoucherStatus.ACTIVE)
+                .version(0L)
+                .build();
+        when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
+        when(voucherRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        EditVoucherRequest req = new EditVoucherRequest(
+                DiscountType.PERCENT,
+                new BigDecimal("20.00"),
+                LocalDateTime.parse("2026-02-20T00:00:00"),
+                LocalDateTime.parse("2026-02-25T00:00:00"),
+                new BigDecimal("50.00"),
+                15
+        );
+
+        CreateVoucherResponse resp = voucherService.editVoucher(1L, req);
+
+        assertThat(resp.code()).isEqualTo("DEMO10");
+        assertThat(resp.discountType()).isEqualTo(DiscountType.PERCENT);
+        assertThat(resp.discountValue()).isEqualTo(new BigDecimal("20.00"));
+        assertThat(resp.startAt()).isEqualTo(LocalDateTime.parse("2026-02-20T00:00:00"));
+        assertThat(resp.endAt()).isEqualTo(LocalDateTime.parse("2026-02-25T00:00:00"));
+        assertThat(resp.minSpend()).isEqualTo(new BigDecimal("50.00"));
+        assertThat(resp.quotaTotal()).isEqualTo(15);
+        
+        // QuotaRemaining should be updated based on new total and already claimed (15 - 5 = 10)
+        assertThat(resp.quotaRemaining()).isEqualTo(10);
+    }
+
+    @Test
+    void disableVoucher_whenNotFound_throws() {
+        when(voucherRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> voucherService.disableVoucher(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("voucher not found");
+    }
+
+    @Test
+    void disableVoucher_success_setsStatusToInactive() {
+        Voucher voucher = Voucher.builder()
+                .id(1L)
+                .status(VoucherStatus.ACTIVE)
+                .build();
+        when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
+        when(voucherRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        voucherService.disableVoucher(1L);
+
+        assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.INACTIVE);
     }
 }
