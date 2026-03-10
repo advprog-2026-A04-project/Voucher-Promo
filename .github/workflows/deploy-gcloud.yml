@@ -1,0 +1,220 @@
+name: Deploy (Google Cloud Run)
+
+on:
+  push:
+    branches:
+      - staging
+      - main
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target"
+        type: choice
+        required: true
+        options:
+          - staging
+          - prod
+        default: staging
+
+concurrency:
+  group: deploy-gcloud-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # required for Workload Identity Federation
+
+# ---------------------------------------------------------------------------
+# Required GitHub Secrets / Variables (set in repo Settings → Secrets/Vars):
+#
+#   Secrets:
+#     GCP_SA_KEY          – Service Account JSON key (alternative to WIF)
+#
+#   Variables:
+#     GCP_PROJECT_ID      – e.g. project-58e5335e-d6a4-4499-b08
+#     GCP_REGION          – e.g. us-central1
+#     CLOUDRUN_SERVICE    – e.g. voucher-promo-api
+#
+#   Optional (for Workload Identity Federation — recommended over SA key):
+#     GCP_WORKLOAD_IDENTITY_PROVIDER  – projects/NUMBER/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
+#     GCP_SERVICE_ACCOUNT             – sa-name@PROJECT_ID.iam.gserviceaccount.com
+# ---------------------------------------------------------------------------
+
+jobs:
+  # ── Staging ──────────────────────────────────────────────────────────────
+  staging:
+    name: Deploy to Cloud Run (staging)
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+    runs-on: ubuntu-latest
+    environment: gcp-staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required config
+        id: cfg
+        run: |
+          set -euo pipefail
+          missing=0
+          [[ -z "${GCP_PROJECT_ID}" ]]   && echo "::warning::Missing var: GCP_PROJECT_ID"   && missing=1
+          [[ -z "${GCP_REGION}" ]]       && echo "::warning::Missing var: GCP_REGION"       && missing=1
+          [[ -z "${CLOUDRUN_SERVICE}" ]] && echo "::warning::Missing var: CLOUDRUN_SERVICE" && missing=1
+
+          if [[ -n "${GCP_WORKLOAD_IDENTITY_PROVIDER}" && -n "${GCP_SERVICE_ACCOUNT}" ]]; then
+            echo "auth_method=wif" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${GCP_SA_KEY}" ]]; then
+            echo "auth_method=sa_key" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Missing GCP credentials. Set GCP_WORKLOAD_IDENTITY_PROVIDER + GCP_SERVICE_ACCOUNT (recommended) OR GCP_SA_KEY."
+            missing=1
+          fi
+
+          if [[ "${missing}" -eq 1 ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Authenticate to Google Cloud (Workload Identity)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'wif'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'sa_key'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        if: steps.cfg.outputs.enabled == 'true'
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image (staging)
+        if: steps.cfg.outputs.enabled == 'true'
+        run: |
+          IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}"
+          docker build -t "${IMAGE}:staging" -t "${IMAGE}:staging-${{ github.sha }}" .
+          docker push "${IMAGE}:staging"
+          docker push "${IMAGE}:staging-${{ github.sha }}"
+
+      - name: Deploy to Cloud Run (staging)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:staging-${{ github.sha }}
+          flags: "--allow-unauthenticated --max-instances=3"
+
+      - name: Show deployed URL (staging)
+        if: steps.cfg.outputs.enabled == 'true'
+        run: |
+          gcloud run services describe ${{ vars.CLOUDRUN_SERVICE }} \
+            --region ${{ vars.GCP_REGION }} \
+            --format="value(status.url)"
+
+  # ── Production ───────────────────────────────────────────────────────────
+  prod:
+    name: Deploy to Cloud Run (production)
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
+    runs-on: ubuntu-latest
+    environment: gcp-prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required config
+        id: cfg
+        run: |
+          set -euo pipefail
+          missing=0
+          [[ -z "${GCP_PROJECT_ID}" ]]   && echo "::warning::Missing var: GCP_PROJECT_ID"   && missing=1
+          [[ -z "${GCP_REGION}" ]]       && echo "::warning::Missing var: GCP_REGION"       && missing=1
+          [[ -z "${CLOUDRUN_SERVICE}" ]] && echo "::warning::Missing var: CLOUDRUN_SERVICE" && missing=1
+
+          if [[ -n "${GCP_WORKLOAD_IDENTITY_PROVIDER}" && -n "${GCP_SERVICE_ACCOUNT}" ]]; then
+            echo "auth_method=wif" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${GCP_SA_KEY}" ]]; then
+            echo "auth_method=sa_key" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Missing GCP credentials."
+            missing=1
+          fi
+
+          if [[ "${missing}" -eq 1 ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Authenticate to Google Cloud (Workload Identity)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'wif'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'sa_key'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        if: steps.cfg.outputs.enabled == 'true'
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image (prod)
+        if: steps.cfg.outputs.enabled == 'true'
+        run: |
+          IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}"
+          docker build -t "${IMAGE}:prod" -t "${IMAGE}:prod-${{ github.sha }}" .
+          docker push "${IMAGE}:prod"
+          docker push "${IMAGE}:prod-${{ github.sha }}"
+
+      - name: Deploy to Cloud Run (production)
+        if: steps.cfg.outputs.enabled == 'true'
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:prod-${{ github.sha }}
+          flags: "--allow-unauthenticated --max-instances=3"
+
+      - name: Show deployed URL (production)
+        if: steps.cfg.outputs.enabled == 'true'
+        run: |
+          gcloud run services describe ${{ vars.CLOUDRUN_SERVICE }} \
+            --region ${{ vars.GCP_REGION }} \
+            --format="value(status.url)"

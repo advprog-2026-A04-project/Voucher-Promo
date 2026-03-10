@@ -18,12 +18,13 @@ COPY backend/ backend/
 # Serve the Vite build from Spring Boot's static resources.
 COPY --from=frontend-build /app/frontend/dist backend/src/main/resources/static
 
-RUN ./gradlew :backend:bootJar --no-daemon
+RUN chmod +x gradlew && ./gradlew :backend:bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=backend-build /app/backend/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 ENV JAVA_OPTS=""
+ENV SPRING_PROFILES_ACTIVE="cloudrun"
 CMD ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
 
