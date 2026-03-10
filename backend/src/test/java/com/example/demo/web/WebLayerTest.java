@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -136,6 +137,65 @@ class WebLayerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.code").value("DEMO10"))
                 .andExpect(jsonPath("$.quotaRemaining").value(5));
+    }
+
+    @Test
+    void putAdminVoucher_success_returns200() throws Exception {
+        when(voucherService.editVoucher(any(), any())).thenReturn(new CreateVoucherResponse(
+                1L,
+                "DEMO10",
+                DiscountType.FIXED,
+                new BigDecimal("20.00"),
+                LocalDateTime.parse("2026-02-19T00:00:00"),
+                LocalDateTime.parse("2026-03-01T00:00:00"),
+                null,
+                10,
+                10,
+                VoucherStatus.ACTIVE
+        ));
+        CsrfTokens csrf = fetchCsrfTokens();
+
+        mockMvc.perform(put("/admin/vouchers/1")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("X-Admin-Token", "test-admin-token")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "discountType": "FIXED",
+                                  "discountValue": 20.00,
+                                  "startAt": "2026-02-19T00:00:00",
+                                  "endAt": "2026-03-01T00:00:00",
+                                  "minSpend": null,
+                                  "quotaTotal": 10
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discountValue").value(20.00))
+                .andExpect(jsonPath("$.quotaTotal").value(10));
+    }
+
+    @Test
+    void putAdminVoucher_withoutAdminToken_returns401() throws Exception {
+        CsrfTokens csrf = fetchCsrfTokens();
+
+        mockMvc.perform(put("/admin/vouchers/1")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .contentType(APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void disableAdminVoucher_success_returns204() throws Exception {
+        CsrfTokens csrf = fetchCsrfTokens();
+
+        mockMvc.perform(post("/admin/vouchers/1/disable")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .header("X-Admin-Token", "test-admin-token"))
+                .andExpect(status().isNoContent());
     }
 
     @Test

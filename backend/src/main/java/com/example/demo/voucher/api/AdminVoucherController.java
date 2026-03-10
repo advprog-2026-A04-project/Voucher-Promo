@@ -2,10 +2,13 @@ package com.example.demo.voucher.api;
 
 import com.example.demo.voucher.api.dto.CreateVoucherRequest;
 import com.example.demo.voucher.api.dto.CreateVoucherResponse;
+import com.example.demo.voucher.api.dto.EditVoucherRequest;
 import com.example.demo.voucher.service.VoucherService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -25,6 +28,17 @@ public class AdminVoucherController {
     @ResponseStatus(HttpStatus.CREATED)
     public CreateVoucherResponse createVoucher(@Valid @RequestBody CreateVoucherRequest request) {
         return voucherService.createVoucher(request);
+    }
+
+    @PutMapping("/{id}")
+    public CreateVoucherResponse editVoucher(@PathVariable("id") Long id, @Valid @RequestBody EditVoucherRequest request) {
+        return voucherService.editVoucher(id, request);
+    }
+
+    @PostMapping("/{id}/disable")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void disableVoucher(@PathVariable("id") Long id) {
+        voucherService.disableVoucher(id);
     }
 }
 
