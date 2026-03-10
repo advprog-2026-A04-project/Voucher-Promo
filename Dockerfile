@@ -18,7 +18,7 @@ COPY backend/ backend/
 # Serve the Vite build from Spring Boot's static resources.
 COPY --from=frontend-build /app/frontend/dist backend/src/main/resources/static
 
-RUN ./gradlew :backend:bootJar --no-daemon
+RUN chmod +x gradlew && ./gradlew :backend:bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
