@@ -20,11 +20,27 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     @Query("SELECT v FROM Voucher v WHERE v.code = :code")
     Optional<Voucher> findByCodeForUpdate(@Param("code") String code);
 
+    List<Voucher> findAllByOrderByCreatedAtDesc();
+
+    List<Voucher> findByStatusOrderByCreatedAtDesc(VoucherStatus status);
+
     List<Voucher> findByStatusAndStartAtLessThanEqualAndEndAtGreaterThanEqualAndQuotaRemainingGreaterThan(
             VoucherStatus status,
             LocalDateTime startAt,
             LocalDateTime endAt,
             Integer quotaRemaining
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Voucher v
+            SET v.status = :expiredStatus
+            WHERE v.endAt < :now
+              AND v.status <> :expiredStatus
+            """)
+    int markExpiredVouchers(
+            @Param("expiredStatus") VoucherStatus expiredStatus,
+            @Param("now") LocalDateTime now
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

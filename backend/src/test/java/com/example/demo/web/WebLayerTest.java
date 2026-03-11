@@ -140,6 +140,37 @@ class WebLayerTest {
     }
 
     @Test
+    void getAdminVouchers_withoutAdminToken_returns401() throws Exception {
+        mockMvc.perform(get("/admin/vouchers"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("missing or invalid admin token"));
+    }
+
+    @Test
+    void getAdminVouchers_withAdminToken_returns200() throws Exception {
+        when(voucherService.getAdminVouchers(any())).thenReturn(List.of(
+                new CreateVoucherResponse(
+                        1L,
+                        "DEMO10",
+                        DiscountType.FIXED,
+                        new BigDecimal("10.00"),
+                        LocalDateTime.parse("2026-02-19T00:00:00"),
+                        LocalDateTime.parse("2026-03-01T00:00:00"),
+                        null,
+                        5,
+                        5,
+                        VoucherStatus.ACTIVE
+                )
+        ));
+
+        mockMvc.perform(get("/admin/vouchers")
+                        .header("X-Admin-Token", "test-admin-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code").value("DEMO10"))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"));
+    }
+
+    @Test
     void putAdminVoucher_success_returns200() throws Exception {
         when(voucherService.editVoucher(any(), any())).thenReturn(new CreateVoucherResponse(
                 1L,
@@ -239,6 +270,27 @@ class WebLayerTest {
     }
 
     @Test
+    void postValidate_acceptsSubtotalAlias() throws Exception {
+        when(voucherService.validateVoucher(any())).thenReturn(new ValidateVoucherResponse(
+                true,
+                "DEMO10",
+                new BigDecimal("100.00"),
+                new BigDecimal("10.00"),
+                "ok"
+        ));
+        CsrfTokens csrf = fetchCsrfTokens();
+
+        mockMvc.perform(post("/vouchers/validate")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"code\":\"DEMO10\",\"subtotal\":100.00}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.discountAmount").value(10.00));
+    }
+
+    @Test
     void postClaim_whenServiceThrowsIllegalArgument_returnsApiResponse() throws Exception {
         when(voucherService.claimVoucher(any())).thenThrow(new IllegalArgumentException("bad request"));
         CsrfTokens csrf = fetchCsrfTokens();
@@ -274,6 +326,30 @@ class WebLayerTest {
                         .header(csrf.headerName(), csrf.token())
                         .contentType(APPLICATION_JSON)
                         .content("{\"code\":\"DEMO10\",\"orderId\":\"ORDER-1\",\"orderAmount\":100.00}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.quotaRemaining").value(4));
+    }
+
+    @Test
+    void postClaim_acceptsSubtotalAlias() throws Exception {
+        when(voucherService.claimVoucher(any())).thenReturn(new ClaimVoucherResponse(
+                true,
+                false,
+                "DEMO10",
+                "ORDER-1",
+                new BigDecimal("100.00"),
+                new BigDecimal("10.00"),
+                4,
+                "ok"
+        ));
+        CsrfTokens csrf = fetchCsrfTokens();
+
+        mockMvc.perform(post("/vouchers/claim")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"code\":\"DEMO10\",\"orderId\":\"ORDER-1\",\"subtotal\":100.00}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.quotaRemaining").value(4));

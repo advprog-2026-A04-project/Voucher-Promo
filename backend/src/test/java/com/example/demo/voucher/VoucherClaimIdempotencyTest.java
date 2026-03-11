@@ -59,7 +59,7 @@ class VoucherClaimIdempotencyTest extends MySqlTestcontainersBase {
                 .build();
         voucherRepository.save(voucher);
 
-        ClaimVoucherRequest req = new ClaimVoucherRequest("IDEMPOTENT10", "ORDER-123", new BigDecimal("100.00"));
+        ClaimVoucherRequest req = new ClaimVoucherRequest("IDEMPOTENT10", "ORDER-123", new BigDecimal("100.00"), 123L);
 
         ClaimVoucherResponse first = voucherService.claimVoucher(req);
         ClaimVoucherResponse second = voucherService.claimVoucher(req);

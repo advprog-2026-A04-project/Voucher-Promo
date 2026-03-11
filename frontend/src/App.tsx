@@ -48,7 +48,7 @@ type CreateVoucherResponse = {
   minSpend: number | null
   quotaTotal: number
   quotaRemaining: number
-  status: 'ACTIVE' | 'INACTIVE'
+  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED'
 }
 
 type ApiError = { message?: string; errors?: Record<string, string> }
@@ -339,7 +339,7 @@ function App() {
           <div className="flex items-center gap-3">
             <Badge tone={healthTone}>{health === 'unknown' ? 'HEALTH: UNKNOWN' : `HEALTH: ${health}`}</Badge>
             <Button type="button" onClick={() => refresh()} disabled={refreshing}>
-              {refreshing ? 'Refreshing…' : 'Refresh'}
+              {refreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
         </header>
