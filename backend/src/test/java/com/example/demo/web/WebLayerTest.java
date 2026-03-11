@@ -140,6 +140,37 @@ class WebLayerTest {
     }
 
     @Test
+    void getAdminVouchers_withoutAdminToken_returns401() throws Exception {
+        mockMvc.perform(get("/admin/vouchers"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("missing or invalid admin token"));
+    }
+
+    @Test
+    void getAdminVouchers_withAdminToken_returns200() throws Exception {
+        when(voucherService.getAdminVouchers(any())).thenReturn(List.of(
+                new CreateVoucherResponse(
+                        1L,
+                        "DEMO10",
+                        DiscountType.FIXED,
+                        new BigDecimal("10.00"),
+                        LocalDateTime.parse("2026-02-19T00:00:00"),
+                        LocalDateTime.parse("2026-03-01T00:00:00"),
+                        null,
+                        5,
+                        5,
+                        VoucherStatus.ACTIVE
+                )
+        ));
+
+        mockMvc.perform(get("/admin/vouchers")
+                        .header("X-Admin-Token", "test-admin-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code").value("DEMO10"))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"));
+    }
+
+    @Test
     void putAdminVoucher_success_returns200() throws Exception {
         when(voucherService.editVoucher(any(), any())).thenReturn(new CreateVoucherResponse(
                 1L,

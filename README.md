@@ -88,7 +88,7 @@ Dev proxy is configured in `frontend/vite.config.ts` so the frontend can call th
 
 ### Troubleshooting
 - `Port 8080 was already in use`: stop the other process or run with `PORT=8081` and update `frontend/vite.config.ts` proxy targets.
-- `401 missing or invalid admin token` on `POST /admin/vouchers`: set `ADMIN_TOKEN` and send the same value in `X-Admin-Token`.
+- `401 missing or invalid admin token` on `/admin/*` endpoints: set `ADMIN_TOKEN` and send the same value in `X-Admin-Token`.
 - `403 Forbidden` on POST requests with curl: you must fetch `/csrf` first and send `X-XSRF-TOKEN` (see CSRF section below).
 - `voucher not in active period`: your start/end timestamps must include "now"; if your local/staging time zone differs, set `APP_TIME_ZONE=Asia/Jakarta` (or your preferred zone).
 
@@ -103,7 +103,7 @@ Backend reads DB configuration from environment variables:
 - `DB_SSL_MODE` (optional; MySQL `sslMode`, default: `PREFERRED`)
 
 Other:
-- `ADMIN_TOKEN` (demo guard for `POST /admin/vouchers`, default: `dev-admin-token`)
+- `ADMIN_TOKEN` (demo guard for `/admin/*` endpoints, default: `dev-admin-token`)
 - `PORT` (server port, default: `8080`)
 - `APP_TIME_ZONE` (optional; time zone for voucher start/end window checks, e.g., `Asia/Jakarta`)
 
@@ -122,10 +122,10 @@ curl "$BASE_URL/health"
 curl "$BASE_URL/actuator/health"
 ```
 
-### CSRF (Required for POST)
+### CSRF (Required for POST/PUT)
 This backend enables cookie-based CSRF protection. The React frontend handles it automatically.
 
-For non-browser clients, every `POST` must include:
+For non-browser clients, every `POST`/`PUT` must include:
 - Cookie: `XSRF-TOKEN=<token>`
 - Header: `X-XSRF-TOKEN: <token>`
 

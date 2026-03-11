@@ -71,6 +71,56 @@ class VoucherServiceUnitTest {
     }
 
     @Test
+    void getAdminVouchers_whenStatusNull_returnsAllVouchers() {
+        Voucher voucher = Voucher.builder()
+                .id(1L)
+                .code("DEMO10")
+                .discountType(DiscountType.FIXED)
+                .discountValue(new BigDecimal("10.00"))
+                .startAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
+                .minSpend(null)
+                .quotaTotal(5)
+                .quotaRemaining(5)
+                .status(VoucherStatus.ACTIVE)
+                .version(0L)
+                .build();
+
+        when(voucherRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(voucher));
+
+        List<CreateVoucherResponse> resp = voucherService.getAdminVouchers(null);
+
+        assertThat(resp).hasSize(1);
+        assertThat(resp.get(0).code()).isEqualTo("DEMO10");
+        assertThat(resp.get(0).status()).isEqualTo(VoucherStatus.ACTIVE);
+    }
+
+    @Test
+    void getAdminVouchers_whenStatusProvided_filtersByStatus() {
+        Voucher voucher = Voucher.builder()
+                .id(2L)
+                .code("INACT")
+                .discountType(DiscountType.FIXED)
+                .discountValue(new BigDecimal("10.00"))
+                .startAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
+                .minSpend(null)
+                .quotaTotal(5)
+                .quotaRemaining(5)
+                .status(VoucherStatus.INACTIVE)
+                .version(0L)
+                .build();
+
+        when(voucherRepository.findByStatusOrderByCreatedAtDesc(VoucherStatus.INACTIVE)).thenReturn(List.of(voucher));
+
+        List<CreateVoucherResponse> resp = voucherService.getAdminVouchers(VoucherStatus.INACTIVE);
+
+        assertThat(resp).hasSize(1);
+        assertThat(resp.get(0).code()).isEqualTo("INACT");
+        assertThat(resp.get(0).status()).isEqualTo(VoucherStatus.INACTIVE);
+    }
+
+    @Test
     void validateVoucher_whenNotFound_returnsInvalid() {
         when(voucherRepository.findByCode("MISSING")).thenReturn(Optional.empty());
 
@@ -149,6 +199,29 @@ class VoucherServiceUnitTest {
 
         assertThat(resp.valid()).isFalse();
         assertThat(resp.message()).isEqualTo("voucher inactive");
+    }
+
+    @Test
+    void validateVoucher_whenExpiredStatus_returnsInvalid() {
+        Voucher voucher = Voucher.builder()
+                .id(1L)
+                .code("EXP")
+                .discountType(DiscountType.FIXED)
+                .discountValue(new BigDecimal("1.00"))
+                .startAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
+                .minSpend(null)
+                .quotaTotal(5)
+                .quotaRemaining(5)
+                .status(VoucherStatus.EXPIRED)
+                .version(0L)
+                .build();
+        when(voucherRepository.findByCode("EXP")).thenReturn(Optional.of(voucher));
+
+        ValidateVoucherResponse resp = voucherService.validateVoucher(new ValidateVoucherRequest("exp", new BigDecimal("100.00")));
+
+        assertThat(resp.valid()).isFalse();
+        assertThat(resp.message()).isEqualTo("voucher expired");
     }
 
     @Test
@@ -512,6 +585,7 @@ class VoucherServiceUnitTest {
                 .id(1L)
                 .quotaTotal(10)
                 .quotaRemaining(5) // claimed = 5
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
                 .build();
         when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
 
@@ -527,6 +601,28 @@ class VoucherServiceUnitTest {
         assertThatThrownBy(() -> voucherService.editVoucher(1L, req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("new quotaTotal cannot be less than already claimed quota");
+    }
+
+    @Test
+    void editVoucher_whenExpired_throws() {
+        Voucher voucher = Voucher.builder()
+                .id(1L)
+                .endAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .build();
+        when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
+
+        EditVoucherRequest req = new EditVoucherRequest(
+                DiscountType.FIXED,
+                new BigDecimal("10.00"),
+                LocalDateTime.parse("2026-02-19T00:00:00"),
+                LocalDateTime.parse("2026-02-20T00:00:00"),
+                null,
+                5
+        );
+
+        assertThatThrownBy(() -> voucherService.editVoucher(1L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("voucher expired");
     }
 
     @Test
@@ -584,6 +680,7 @@ class VoucherServiceUnitTest {
         Voucher voucher = Voucher.builder()
                 .id(1L)
                 .status(VoucherStatus.ACTIVE)
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
                 .build();
         when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
         when(voucherRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -591,5 +688,19 @@ class VoucherServiceUnitTest {
         voucherService.disableVoucher(1L);
 
         assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.INACTIVE);
+    }
+
+    @Test
+    void disableVoucher_whenExpired_setsStatusToExpired() {
+        Voucher voucher = Voucher.builder()
+                .id(1L)
+                .status(VoucherStatus.ACTIVE)
+                .endAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .build();
+        when(voucherRepository.findById(1L)).thenReturn(Optional.of(voucher));
+
+        voucherService.disableVoucher(1L);
+
+        assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.EXPIRED);
     }
 }

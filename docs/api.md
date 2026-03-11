@@ -7,11 +7,11 @@
 
 All endpoints use JSON.
 
-## CSRF (Required For `POST`)
+## CSRF (Required For `POST`/`PUT`)
 
 This backend uses cookie-based CSRF protection.
 
-For every `POST` request:
+For every `POST`/`PUT` request:
 
 1. Call `GET /csrf` once to receive:
    - Cookie: `XSRF-TOKEN=<token>`
@@ -139,9 +139,63 @@ Notes:
 - `endAt` must be after `startAt`
 - `minSpend` may be `null`
 
+### Admin: List Vouchers
+
+`GET /admin/vouchers` (requires `X-Admin-Token`)
+
+Optional query params:
+- `status`: `ACTIVE` | `INACTIVE` | `EXPIRED`
+
+Response (array):
+```json
+[
+  {
+    "id": 1,
+    "code": "SPRING10",
+    "discountType": "PERCENT",
+    "discountValue": 10.00,
+    "startAt": "2026-03-06T00:00:00",
+    "endAt": "2026-04-06T00:00:00",
+    "minSpend": 100.00,
+    "quotaTotal": 100,
+    "quotaRemaining": 42,
+    "status": "ACTIVE"
+  }
+]
+```
+
+### Admin: Edit Voucher
+
+`PUT /admin/vouchers/{id}` (requires `X-Admin-Token` + CSRF)
+
+Request:
+```json
+{
+  "discountType": "PERCENT",
+  "discountValue": 10.00,
+  "startAt": "2026-03-06T00:00:00",
+  "endAt": "2026-04-06T00:00:00",
+  "minSpend": 100.00,
+  "quotaTotal": 100
+}
+```
+
+Notes:
+- Editing an expired voucher returns `400` (`voucher expired`).
+- `quotaTotal` cannot be set below the already-claimed quota.
+- `quotaRemaining` is recomputed as `quotaTotal - claimed`.
+
+### Admin: Disable Voucher
+
+`POST /admin/vouchers/{id}/disable` (requires `X-Admin-Token` + CSRF)
+
+Response: `204 No Content`
+
 ## Behavior Notes
 
 - Voucher codes are normalized: `trim + uppercase` (case-insensitive input).
+- Voucher statuses: `ACTIVE`, `INACTIVE`, `EXPIRED`.
+- Expired vouchers are automatically marked as `EXPIRED` (and won't show up in `/vouchers/active`).
 - Discounts are rounded to 2 decimals (HALF_UP).
 - `FIXED` discount is capped at `orderAmount` (cannot exceed order total).
 - Claim is concurrency-safe and idempotent by `(voucher, orderId)`.

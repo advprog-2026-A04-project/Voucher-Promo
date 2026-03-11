@@ -43,6 +43,7 @@ public class VoucherService {
 
     public List<VoucherPublicResponse> getActiveVouchers() {
         LocalDateTime now = LocalDateTime.now(clock);
+        expireVouchers(now);
         return voucherRepository
                 .findByStatusAndStartAtLessThanEqualAndEndAtGreaterThanEqualAndQuotaRemainingGreaterThan(
                         VoucherStatus.ACTIVE,
@@ -63,12 +64,26 @@ public class VoucherService {
                 .toList();
     }
 
+    public List<CreateVoucherResponse> getAdminVouchers(VoucherStatus status) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        expireVouchers(now);
+
+        List<Voucher> vouchers = status == null
+                ? voucherRepository.findAllByOrderByCreatedAtDesc()
+                : voucherRepository.findByStatusOrderByCreatedAtDesc(status);
+
+        return vouchers.stream()
+                .map(VoucherService::toCreateVoucherResponse)
+                .toList();
+    }
+
     @Transactional
     public ClaimVoucherResponse claimVoucher(ClaimVoucherRequest request) {
         String code = normalizeCode(request.code());
         String orderId = request.orderId().trim();
         BigDecimal orderAmount = request.orderAmount();
         LocalDateTime now = LocalDateTime.now(clock);
+        expireVouchers(now);
 
         Voucher voucher = voucherRepository.findByCodeForUpdate(code).orElse(null);
         if (voucher == null) {
@@ -131,6 +146,7 @@ public class VoucherService {
         String code = normalizeCode(request.code());
         BigDecimal orderAmount = request.orderAmount();
         LocalDateTime now = LocalDateTime.now(clock);
+        expireVouchers(now);
 
         Voucher voucher = voucherRepository.findByCode(code).orElse(null);
         if (voucher == null) {
@@ -177,18 +193,7 @@ public class VoucherService {
             throw new IllegalArgumentException("voucher code already exists");
         }
 
-        return new CreateVoucherResponse(
-                saved.getId(),
-                saved.getCode(),
-                saved.getDiscountType(),
-                saved.getDiscountValue(),
-                saved.getStartAt(),
-                saved.getEndAt(),
-                saved.getMinSpend(),
-                saved.getQuotaTotal(),
-                saved.getQuotaRemaining(),
-                saved.getStatus()
-        );
+        return toCreateVoucherResponse(saved);
     }
 
     @Transactional
@@ -201,8 +206,15 @@ public class VoucherService {
             throw new IllegalArgumentException("percent discount must be <= 100");
         }
 
+        LocalDateTime now = LocalDateTime.now(clock);
+        expireVouchers(now);
+
         Voucher voucher = voucherRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("voucher not found"));
+
+        if (voucher.getStatus() == VoucherStatus.EXPIRED || now.isAfter(voucher.getEndAt())) {
+            throw new IllegalArgumentException("voucher expired");
+        }
 
         int claimed = voucher.getQuotaTotal() - voucher.getQuotaRemaining();
         if (request.quotaTotal() < claimed) {
@@ -217,24 +229,22 @@ public class VoucherService {
         voucher.setQuotaTotal(request.quotaTotal());
         voucher.setQuotaRemaining(request.quotaTotal() - claimed);
 
-        return new CreateVoucherResponse(
-                voucher.getId(),
-                voucher.getCode(),
-                voucher.getDiscountType(),
-                voucher.getDiscountValue(),
-                voucher.getStartAt(),
-                voucher.getEndAt(),
-                voucher.getMinSpend(),
-                voucher.getQuotaTotal(),
-                voucher.getQuotaRemaining(),
-                voucher.getStatus()
-        );
+        return toCreateVoucherResponse(voucher);
     }
 
     @Transactional
     public void disableVoucher(Long id) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        expireVouchers(now);
+
         Voucher voucher = voucherRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("voucher not found"));
+
+        if (voucher.getStatus() == VoucherStatus.EXPIRED || now.isAfter(voucher.getEndAt())) {
+            voucher.setStatus(VoucherStatus.EXPIRED);
+            return;
+        }
+
         voucher.setStatus(VoucherStatus.INACTIVE);
     }
 
@@ -242,7 +252,14 @@ public class VoucherService {
         return code.trim().toUpperCase(Locale.ROOT);
     }
 
+    private void expireVouchers(LocalDateTime now) {
+        voucherRepository.markExpiredVouchers(VoucherStatus.EXPIRED, now);
+    }
+
     private static String validateVoucherUsability(Voucher voucher, BigDecimal orderAmount, LocalDateTime now) {
+        if (voucher.getStatus() == VoucherStatus.EXPIRED) {
+            return "voucher expired";
+        }
         if (voucher.getStatus() != VoucherStatus.ACTIVE) {
             return "voucher inactive";
         }
@@ -269,6 +286,21 @@ public class VoucherService {
             return orderAmount.setScale(2, RoundingMode.HALF_UP);
         }
         return discount.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static CreateVoucherResponse toCreateVoucherResponse(Voucher voucher) {
+        return new CreateVoucherResponse(
+                voucher.getId(),
+                voucher.getCode(),
+                voucher.getDiscountType(),
+                voucher.getDiscountValue(),
+                voucher.getStartAt(),
+                voucher.getEndAt(),
+                voucher.getMinSpend(),
+                voucher.getQuotaTotal(),
+                voucher.getQuotaRemaining(),
+                voucher.getStatus()
+        );
     }
 }
 
