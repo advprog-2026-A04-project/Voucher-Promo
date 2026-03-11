@@ -51,6 +51,9 @@ public class VoucherRedemption {
     @Column(name = "order_id", nullable = false, length = 64)
     private String orderId;
 
+    @Column(name = "buyer_id")
+    private Long buyerId;
+
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal orderAmount;
 

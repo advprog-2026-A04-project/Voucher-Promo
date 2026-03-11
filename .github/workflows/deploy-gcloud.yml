@@ -30,10 +30,18 @@ permissions:
 #   Secrets:
 #     GCP_SA_KEY          – Service Account JSON key (alternative to WIF)
 #
+#     # Optional (Cloud SQL):
+#     DB_PASSWORD         – Cloud SQL database password (used when Cloud SQL vars are set)
+#
 #   Variables:
 #     GCP_PROJECT_ID      – e.g. project-58e5335e-d6a4-4499-b08
 #     GCP_REGION          – e.g. us-central1
 #     CLOUDRUN_SERVICE    – e.g. voucher-promo-api
+#
+#     # Optional (Cloud SQL):
+#     INSTANCE_CONNECTION_NAME – e.g. "my-project:us-central1:my-sql"
+#     DB_NAME                  – e.g. voucherpromo
+#     DB_USER                  – e.g. app
 #
 #   Optional (for Workload Identity Federation — recommended over SA key):
 #     GCP_WORKLOAD_IDENTITY_PROVIDER  – projects/NUMBER/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
@@ -77,6 +85,30 @@ jobs:
             exit 0
           fi
           echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+          # Cloud SQL is optional. We enable it only if all required vars are present.
+          any_cloudsql=0
+          [[ -n "${INSTANCE_CONNECTION_NAME}" ]] && any_cloudsql=1
+          [[ -n "${DB_NAME}" ]] && any_cloudsql=1
+          [[ -n "${DB_USER}" ]] && any_cloudsql=1
+          [[ -n "${DB_PASSWORD}" ]] && any_cloudsql=1
+
+          if [[ "${any_cloudsql}" -eq 0 ]]; then
+            echo "use_cloudsql=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          cloudsql_missing=0
+          [[ -z "${INSTANCE_CONNECTION_NAME}" ]] && echo "::warning::Missing var: INSTANCE_CONNECTION_NAME (Cloud SQL)" && cloudsql_missing=1
+          [[ -z "${DB_NAME}" ]] && echo "::warning::Missing var: DB_NAME (Cloud SQL)" && cloudsql_missing=1
+          [[ -z "${DB_USER}" ]] && echo "::warning::Missing var: DB_USER (Cloud SQL)" && cloudsql_missing=1
+          [[ -z "${DB_PASSWORD}" ]] && echo "::warning::Missing secret: DB_PASSWORD (Cloud SQL)" && cloudsql_missing=1
+
+          if [[ "${cloudsql_missing}" -eq 0 ]]; then
+            echo "use_cloudsql=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_cloudsql=false" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
           GCP_REGION: ${{ vars.GCP_REGION }}
@@ -84,6 +116,10 @@ jobs:
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          INSTANCE_CONNECTION_NAME: ${{ vars.INSTANCE_CONNECTION_NAME }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
       - name: Authenticate to Google Cloud (Workload Identity)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'wif'
@@ -114,8 +150,23 @@ jobs:
           docker push "${IMAGE}:staging"
           docker push "${IMAGE}:staging-${{ github.sha }}"
 
-      - name: Deploy to Cloud Run (staging)
-        if: steps.cfg.outputs.enabled == 'true'
+      - name: Deploy to Cloud Run (staging, Cloud SQL)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql == 'true'
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:staging-${{ github.sha }}
+          env_vars: |-
+            SPRING_PROFILES_ACTIVE=cloudsql
+            INSTANCE_CONNECTION_NAME=${{ vars.INSTANCE_CONNECTION_NAME }}
+            DB_NAME=${{ vars.DB_NAME }}
+            DB_USER=${{ vars.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          flags: "--allow-unauthenticated --max-instances=3"
+
+      - name: Deploy to Cloud Run (staging, H2)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql != 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ vars.CLOUDRUN_SERVICE }}
@@ -166,6 +217,30 @@ jobs:
             exit 0
           fi
           echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+          # Cloud SQL is optional. We enable it only if all required vars are present.
+          any_cloudsql=0
+          [[ -n "${INSTANCE_CONNECTION_NAME}" ]] && any_cloudsql=1
+          [[ -n "${DB_NAME}" ]] && any_cloudsql=1
+          [[ -n "${DB_USER}" ]] && any_cloudsql=1
+          [[ -n "${DB_PASSWORD}" ]] && any_cloudsql=1
+
+          if [[ "${any_cloudsql}" -eq 0 ]]; then
+            echo "use_cloudsql=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          cloudsql_missing=0
+          [[ -z "${INSTANCE_CONNECTION_NAME}" ]] && echo "::warning::Missing var: INSTANCE_CONNECTION_NAME (Cloud SQL)" && cloudsql_missing=1
+          [[ -z "${DB_NAME}" ]] && echo "::warning::Missing var: DB_NAME (Cloud SQL)" && cloudsql_missing=1
+          [[ -z "${DB_USER}" ]] && echo "::warning::Missing var: DB_USER (Cloud SQL)" && cloudsql_missing=1
+          [[ -z "${DB_PASSWORD}" ]] && echo "::warning::Missing secret: DB_PASSWORD (Cloud SQL)" && cloudsql_missing=1
+
+          if [[ "${cloudsql_missing}" -eq 0 ]]; then
+            echo "use_cloudsql=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_cloudsql=false" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
           GCP_REGION: ${{ vars.GCP_REGION }}
@@ -173,6 +248,10 @@ jobs:
           GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          INSTANCE_CONNECTION_NAME: ${{ vars.INSTANCE_CONNECTION_NAME }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
       - name: Authenticate to Google Cloud (Workload Identity)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'wif'
@@ -203,8 +282,23 @@ jobs:
           docker push "${IMAGE}:prod"
           docker push "${IMAGE}:prod-${{ github.sha }}"
 
-      - name: Deploy to Cloud Run (production)
-        if: steps.cfg.outputs.enabled == 'true'
+      - name: Deploy to Cloud Run (production, Cloud SQL)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql == 'true'
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ vars.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:prod-${{ github.sha }}
+          env_vars: |-
+            SPRING_PROFILES_ACTIVE=cloudsql
+            INSTANCE_CONNECTION_NAME=${{ vars.INSTANCE_CONNECTION_NAME }}
+            DB_NAME=${{ vars.DB_NAME }}
+            DB_USER=${{ vars.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          flags: "--allow-unauthenticated --max-instances=3"
+
+      - name: Deploy to Cloud Run (production, H2)
+        if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql != 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ vars.CLOUDRUN_SERVICE }}
