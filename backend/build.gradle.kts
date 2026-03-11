@@ -36,6 +36,9 @@ dependencies {
     implementation("org.flywaydb:flyway-mysql")
     compileOnly("org.projectlombok:lombok")
     runtimeOnly("com.mysql:mysql-connector-j")
+    // Cloud SQL Java Connector (JDBC Socket Factory) for MySQL.
+    // Used by the optional `cloudsql` Spring profile (Cloud Run + Cloud SQL).
+    runtimeOnly("com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.28.1")
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
