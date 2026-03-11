@@ -110,23 +110,23 @@ jobs:
             echo "use_cloudsql=false" >> "$GITHUB_OUTPUT"
           fi
         env:
-          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-          GCP_REGION: ${{ vars.GCP_REGION }}
-          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE }}
-          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT || secrets.GCP_SERVICE_ACCOUNT }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          INSTANCE_CONNECTION_NAME: ${{ vars.INSTANCE_CONNECTION_NAME }}
-          DB_NAME: ${{ vars.DB_NAME }}
-          DB_USER: ${{ vars.DB_USER }}
+          INSTANCE_CONNECTION_NAME: ${{ vars.INSTANCE_CONNECTION_NAME || secrets.INSTANCE_CONNECTION_NAME }}
+          DB_NAME: ${{ vars.DB_NAME || secrets.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER || secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
       - name: Authenticate to Google Cloud (Workload Identity)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'wif'
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT || secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Authenticate to Google Cloud (Service Account Key)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'sa_key'
@@ -140,12 +140,12 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         if: steps.cfg.outputs.enabled == 'true'
-        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Build and push image (staging)
         if: steps.cfg.outputs.enabled == 'true'
         run: |
-          IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}"
+          IMAGE="${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}"
           docker build -t "${IMAGE}:staging" -t "${IMAGE}:staging-${{ github.sha }}" .
           docker push "${IMAGE}:staging"
           docker push "${IMAGE}:staging-${{ github.sha }}"
@@ -154,14 +154,14 @@ jobs:
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql == 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: ${{ vars.CLOUDRUN_SERVICE }}
-          region: ${{ vars.GCP_REGION }}
-          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:staging-${{ github.sha }}
+          service: ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+          image: ${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}:staging-${{ github.sha }}
           env_vars: |-
             SPRING_PROFILES_ACTIVE=cloudsql
-            INSTANCE_CONNECTION_NAME=${{ vars.INSTANCE_CONNECTION_NAME }}
-            DB_NAME=${{ vars.DB_NAME }}
-            DB_USER=${{ vars.DB_USER }}
+            INSTANCE_CONNECTION_NAME=${{ vars.INSTANCE_CONNECTION_NAME || secrets.INSTANCE_CONNECTION_NAME }}
+            DB_NAME=${{ vars.DB_NAME || secrets.DB_NAME }}
+            DB_USER=${{ vars.DB_USER || secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           flags: "--allow-unauthenticated --max-instances=3"
 
@@ -169,16 +169,16 @@ jobs:
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql != 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: ${{ vars.CLOUDRUN_SERVICE }}
-          region: ${{ vars.GCP_REGION }}
-          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:staging-${{ github.sha }}
+          service: ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+          image: ${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}:staging-${{ github.sha }}
           flags: "--allow-unauthenticated --max-instances=3"
 
       - name: Show deployed URL (staging)
         if: steps.cfg.outputs.enabled == 'true'
         run: |
-          gcloud run services describe ${{ vars.CLOUDRUN_SERVICE }} \
-            --region ${{ vars.GCP_REGION }} \
+          gcloud run services describe ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }} \
+            --region ${{ vars.GCP_REGION || secrets.GCP_REGION }} \
             --format="value(status.url)"
 
   # ── Production ───────────────────────────────────────────────────────────
@@ -242,23 +242,23 @@ jobs:
             echo "use_cloudsql=false" >> "$GITHUB_OUTPUT"
           fi
         env:
-          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-          GCP_REGION: ${{ vars.GCP_REGION }}
-          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE }}
-          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT || secrets.GCP_SERVICE_ACCOUNT }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          INSTANCE_CONNECTION_NAME: ${{ vars.INSTANCE_CONNECTION_NAME }}
-          DB_NAME: ${{ vars.DB_NAME }}
-          DB_USER: ${{ vars.DB_USER }}
+          INSTANCE_CONNECTION_NAME: ${{ vars.INSTANCE_CONNECTION_NAME || secrets.INSTANCE_CONNECTION_NAME }}
+          DB_NAME: ${{ vars.DB_NAME || secrets.DB_NAME }}
+          DB_USER: ${{ vars.DB_USER || secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
       - name: Authenticate to Google Cloud (Workload Identity)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'wif'
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT || secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Authenticate to Google Cloud (Service Account Key)
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.auth_method == 'sa_key'
@@ -272,12 +272,12 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         if: steps.cfg.outputs.enabled == 'true'
-        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Build and push image (prod)
         if: steps.cfg.outputs.enabled == 'true'
         run: |
-          IMAGE="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}"
+          IMAGE="${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}"
           docker build -t "${IMAGE}:prod" -t "${IMAGE}:prod-${{ github.sha }}" .
           docker push "${IMAGE}:prod"
           docker push "${IMAGE}:prod-${{ github.sha }}"
@@ -286,14 +286,14 @@ jobs:
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql == 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: ${{ vars.CLOUDRUN_SERVICE }}
-          region: ${{ vars.GCP_REGION }}
-          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:prod-${{ github.sha }}
+          service: ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+          image: ${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}:prod-${{ github.sha }}
           env_vars: |-
             SPRING_PROFILES_ACTIVE=cloudsql
-            INSTANCE_CONNECTION_NAME=${{ vars.INSTANCE_CONNECTION_NAME }}
-            DB_NAME=${{ vars.DB_NAME }}
-            DB_USER=${{ vars.DB_USER }}
+            INSTANCE_CONNECTION_NAME=${{ vars.INSTANCE_CONNECTION_NAME || secrets.INSTANCE_CONNECTION_NAME }}
+            DB_NAME=${{ vars.DB_NAME || secrets.DB_NAME }}
+            DB_USER=${{ vars.DB_USER || secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           flags: "--allow-unauthenticated --max-instances=3"
 
@@ -301,14 +301,14 @@ jobs:
         if: steps.cfg.outputs.enabled == 'true' && steps.cfg.outputs.use_cloudsql != 'true'
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: ${{ vars.CLOUDRUN_SERVICE }}
-          region: ${{ vars.GCP_REGION }}
-          image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE }}:prod-${{ github.sha }}
+          service: ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}
+          region: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+          image: ${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }}:prod-${{ github.sha }}
           flags: "--allow-unauthenticated --max-instances=3"
 
       - name: Show deployed URL (production)
         if: steps.cfg.outputs.enabled == 'true'
         run: |
-          gcloud run services describe ${{ vars.CLOUDRUN_SERVICE }} \
-            --region ${{ vars.GCP_REGION }} \
+          gcloud run services describe ${{ vars.CLOUDRUN_SERVICE || secrets.CLOUDRUN_SERVICE }} \
+            --region ${{ vars.GCP_REGION || secrets.GCP_REGION }} \
             --format="value(status.url)"
