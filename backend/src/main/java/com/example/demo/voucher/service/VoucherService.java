@@ -81,6 +81,7 @@ public class VoucherService {
     public ClaimVoucherResponse claimVoucher(ClaimVoucherRequest request) {
         String code = normalizeCode(request.code());
         String orderId = request.orderId().trim();
+        Long buyerId = request.buyerId();
         BigDecimal orderAmount = request.orderAmount();
         LocalDateTime now = LocalDateTime.now(clock);
         expireVouchers(now);
@@ -117,6 +118,7 @@ public class VoucherService {
             voucherRedemptionRepository.save(VoucherRedemption.builder()
                     .voucher(voucher)
                     .orderId(orderId)
+                    .buyerId(buyerId)
                     .orderAmount(orderAmount)
                     .discountApplied(discount)
                     .build());

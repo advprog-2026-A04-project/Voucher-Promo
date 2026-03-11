@@ -270,6 +270,27 @@ class WebLayerTest {
     }
 
     @Test
+    void postValidate_acceptsSubtotalAlias() throws Exception {
+        when(voucherService.validateVoucher(any())).thenReturn(new ValidateVoucherResponse(
+                true,
+                "DEMO10",
+                new BigDecimal("100.00"),
+                new BigDecimal("10.00"),
+                "ok"
+        ));
+        CsrfTokens csrf = fetchCsrfTokens();
+
+        mockMvc.perform(post("/vouchers/validate")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"code\":\"DEMO10\",\"subtotal\":100.00}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.discountAmount").value(10.00));
+    }
+
+    @Test
     void postClaim_whenServiceThrowsIllegalArgument_returnsApiResponse() throws Exception {
         when(voucherService.claimVoucher(any())).thenThrow(new IllegalArgumentException("bad request"));
         CsrfTokens csrf = fetchCsrfTokens();
@@ -305,6 +326,30 @@ class WebLayerTest {
                         .header(csrf.headerName(), csrf.token())
                         .contentType(APPLICATION_JSON)
                         .content("{\"code\":\"DEMO10\",\"orderId\":\"ORDER-1\",\"orderAmount\":100.00}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.quotaRemaining").value(4));
+    }
+
+    @Test
+    void postClaim_acceptsSubtotalAlias() throws Exception {
+        when(voucherService.claimVoucher(any())).thenReturn(new ClaimVoucherResponse(
+                true,
+                false,
+                "DEMO10",
+                "ORDER-1",
+                new BigDecimal("100.00"),
+                new BigDecimal("10.00"),
+                4,
+                "ok"
+        ));
+        CsrfTokens csrf = fetchCsrfTokens();
+
+        mockMvc.perform(post("/vouchers/claim")
+                        .cookie(csrf.cookie())
+                        .header(csrf.headerName(), csrf.token())
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"code\":\"DEMO10\",\"orderId\":\"ORDER-1\",\"subtotal\":100.00}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.quotaRemaining").value(4));

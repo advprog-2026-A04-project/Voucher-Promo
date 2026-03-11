@@ -84,8 +84,12 @@ Response (array):
 
 Request:
 ```json
-{ "code": "SPRING10", "orderAmount": 150.00 }
+{ "code": "SPRING10", "orderAmount": 150.00, "buyerId": 123 }
 ```
+
+Notes:
+- `buyerId` is optional (used for cross-module integration/audit).
+- `subtotal` is accepted as an alias for `orderAmount` (useful when integrating with an Order module).
 
 Response (valid):
 ```json
@@ -103,8 +107,13 @@ Response (invalid):
 
 Request:
 ```json
-{ "code": "SPRING10", "orderId": "ORDER-123", "orderAmount": 150.00 }
+{ "code": "SPRING10", "orderId": "ORDER-123", "orderAmount": 150.00, "buyerId": 123 }
 ```
+
+Notes:
+- Idempotency key: `orderId`.
+- `buyerId` is optional (used for cross-module integration/audit).
+- `subtotal` is accepted as an alias for `orderAmount`.
 
 Response (success):
 ```json

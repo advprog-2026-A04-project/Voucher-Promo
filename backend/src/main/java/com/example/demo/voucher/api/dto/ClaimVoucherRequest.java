@@ -1,5 +1,6 @@
 package com.example.demo.voucher.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.math.BigDecimal;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -17,7 +18,10 @@ public record ClaimVoucherRequest(
 
         @NotNull
         @DecimalMin("0.00")
-        BigDecimal orderAmount
+        @JsonAlias("subtotal")
+        BigDecimal orderAmount,
+
+        Long buyerId
 ) {
 }
 
