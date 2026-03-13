@@ -142,6 +142,10 @@ jobs:
         if: steps.cfg.outputs.enabled == 'true'
         run: gcloud config set project "${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}"
 
+      - name: Enable required Google APIs
+        if: steps.cfg.outputs.enabled == 'true'
+        run: gcloud services enable run.googleapis.com
+
       - name: Configure Docker for Artifact Registry
         if: steps.cfg.outputs.enabled == 'true'
         run: gcloud auth configure-docker ${{ vars.GCP_REGION || secrets.GCP_REGION }}-docker.pkg.dev --quiet
@@ -277,6 +281,10 @@ jobs:
       - name: Set default GCP project
         if: steps.cfg.outputs.enabled == 'true'
         run: gcloud config set project "${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}"
+
+      - name: Enable required Google APIs
+        if: steps.cfg.outputs.enabled == 'true'
+        run: gcloud services enable run.googleapis.com
 
       - name: Configure Docker for Artifact Registry
         if: steps.cfg.outputs.enabled == 'true'
