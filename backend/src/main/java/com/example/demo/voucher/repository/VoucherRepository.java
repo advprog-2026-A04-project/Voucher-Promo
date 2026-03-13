@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface VoucherRepository extends JpaRepository<Voucher, Long> {
 
@@ -32,6 +33,7 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("""
             UPDATE Voucher v
             SET v.status = :expiredStatus
@@ -44,6 +46,7 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
     @Query("""
             UPDATE Voucher v
             SET v.quotaRemaining = v.quotaRemaining - 1
