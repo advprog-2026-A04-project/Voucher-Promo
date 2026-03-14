@@ -144,6 +144,7 @@ jobs:
 
       - name: Enable required Google APIs
         if: steps.cfg.outputs.enabled == 'true'
+        continue-on-error: true
         run: gcloud services enable run.googleapis.com
 
       - name: Configure Docker for Artifact Registry
@@ -284,6 +285,7 @@ jobs:
 
       - name: Enable required Google APIs
         if: steps.cfg.outputs.enabled == 'true'
+        continue-on-error: true
         run: gcloud services enable run.googleapis.com
 
       - name: Configure Docker for Artifact Registry
