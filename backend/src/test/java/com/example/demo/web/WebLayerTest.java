@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.demo.config.SecurityConfig;
 import com.example.demo.security.CsrfController;
+import com.example.demo.security.InternalTokenFilter;
 import com.example.demo.voucher.api.AdminVoucherController;
 import com.example.demo.voucher.api.VoucherController;
 import com.example.demo.voucher.api.dto.ClaimVoucherResponse;
@@ -20,7 +21,6 @@ import com.example.demo.voucher.api.dto.VoucherPublicResponse;
 import com.example.demo.voucher.domain.DiscountType;
 import com.example.demo.voucher.domain.VoucherStatus;
 import com.example.demo.voucher.service.VoucherService;
-import jakarta.servlet.http.Cookie;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,15 +31,18 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
 @WebMvcTest(controllers = {
         VoucherController.class,
         AdminVoucherController.class,
         CsrfController.class
 })
-@Import({SecurityConfig.class, ApiExceptionHandler.class})
-@TestPropertySource(properties = "app.admin-token=test-admin-token")
+@Import({SecurityConfig.class, InternalTokenFilter.class, ApiExceptionHandler.class})
+@TestPropertySource(properties = {
+        "app.admin-token=test-admin-token",
+        "app.internal-token=test-internal-token",
+        "app.cors.allowed-origins=http://localhost:5173"
+})
 class WebLayerTest {
 
     @Autowired
@@ -50,11 +53,7 @@ class WebLayerTest {
 
     @Test
     void postAdminVoucher_withoutAdminToken_returns401() throws Exception {
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/admin/vouchers")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
                         .contentType(APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized())
@@ -63,11 +62,7 @@ class WebLayerTest {
 
     @Test
     void postAdminVoucher_withAdminToken_validationError_returns400() throws Exception {
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/admin/vouchers")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
                         .header("X-Admin-Token", "test-admin-token")
                         .contentType(APPLICATION_JSON)
                         .content("{}"))
@@ -80,11 +75,7 @@ class WebLayerTest {
     @Test
     void postAdminVoucher_withAdminToken_illegalArgument_returns400() throws Exception {
         when(voucherService.createVoucher(any())).thenThrow(new IllegalArgumentException("boom"));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/admin/vouchers")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
                         .header("X-Admin-Token", "test-admin-token")
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -116,11 +107,7 @@ class WebLayerTest {
                 5,
                 VoucherStatus.ACTIVE
         ));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/admin/vouchers")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
                         .header("X-Admin-Token", "test-admin-token")
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -184,11 +171,7 @@ class WebLayerTest {
                 10,
                 VoucherStatus.ACTIVE
         ));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(put("/admin/vouchers/1")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
                         .header("X-Admin-Token", "test-admin-token")
                         .contentType(APPLICATION_JSON)
                         .content("""
@@ -208,11 +191,7 @@ class WebLayerTest {
 
     @Test
     void putAdminVoucher_withoutAdminToken_returns401() throws Exception {
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(put("/admin/vouchers/1")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
                         .contentType(APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized());
@@ -220,11 +199,7 @@ class WebLayerTest {
 
     @Test
     void disableAdminVoucher_success_returns204() throws Exception {
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/admin/vouchers/1/disable")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
                         .header("X-Admin-Token", "test-admin-token"))
                 .andExpect(status().isNoContent());
     }
@@ -257,11 +232,8 @@ class WebLayerTest {
                 new BigDecimal("10.00"),
                 "ok"
         ));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/vouchers/validate")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
+                        .header("X-Internal-Token", "test-internal-token")
                         .contentType(APPLICATION_JSON)
                         .content("{\"code\":\"DEMO10\",\"orderAmount\":100.00}"))
                 .andExpect(status().isOk())
@@ -278,11 +250,8 @@ class WebLayerTest {
                 new BigDecimal("10.00"),
                 "ok"
         ));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/vouchers/validate")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
+                        .header("X-Internal-Token", "test-internal-token")
                         .contentType(APPLICATION_JSON)
                         .content("{\"code\":\"DEMO10\",\"subtotal\":100.00}"))
                 .andExpect(status().isOk())
@@ -293,11 +262,8 @@ class WebLayerTest {
     @Test
     void postClaim_whenServiceThrowsIllegalArgument_returnsApiResponse() throws Exception {
         when(voucherService.claimVoucher(any())).thenThrow(new IllegalArgumentException("bad request"));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/vouchers/claim")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
+                        .header("X-Internal-Token", "test-internal-token")
                         .contentType(APPLICATION_JSON)
                         .content("{\"code\":\" demo10 \",\"orderId\":\" ORDER-1 \",\"orderAmount\":100.00}"))
                 .andExpect(status().isOk())
@@ -319,11 +285,8 @@ class WebLayerTest {
                 4,
                 "ok"
         ));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/vouchers/claim")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
+                        .header("X-Internal-Token", "test-internal-token")
                         .contentType(APPLICATION_JSON)
                         .content("{\"code\":\"DEMO10\",\"orderId\":\"ORDER-1\",\"orderAmount\":100.00}"))
                 .andExpect(status().isOk())
@@ -343,31 +306,12 @@ class WebLayerTest {
                 4,
                 "ok"
         ));
-        CsrfTokens csrf = fetchCsrfTokens();
-
         mockMvc.perform(post("/vouchers/claim")
-                        .cookie(csrf.cookie())
-                        .header(csrf.headerName(), csrf.token())
+                        .header("X-Internal-Token", "test-internal-token")
                         .contentType(APPLICATION_JSON)
                         .content("{\"code\":\"DEMO10\",\"orderId\":\"ORDER-1\",\"subtotal\":100.00}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.quotaRemaining").value(4));
-    }
-
-    private CsrfTokens fetchCsrfTokens() throws Exception {
-        MvcResult result = mockMvc.perform(get("/csrf"))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        Cookie cookie = result.getResponse().getCookie("XSRF-TOKEN");
-        if (cookie == null) {
-            throw new IllegalStateException("Expected XSRF-TOKEN cookie");
-        }
-
-        return new CsrfTokens(cookie, "X-XSRF-TOKEN", cookie.getValue());
-    }
-
-    private record CsrfTokens(Cookie cookie, String headerName, String token) {
     }
 }
