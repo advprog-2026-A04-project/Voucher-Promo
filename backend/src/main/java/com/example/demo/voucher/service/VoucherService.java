@@ -41,6 +41,7 @@ public class VoucherService {
         this.clock = clock;
     }
 
+    @Transactional
     public List<VoucherPublicResponse> getActiveVouchers() {
         LocalDateTime now = LocalDateTime.now(clock);
         expireVouchers(now);
@@ -64,6 +65,7 @@ public class VoucherService {
                 .toList();
     }
 
+    @Transactional
     public List<CreateVoucherResponse> getAdminVouchers(VoucherStatus status) {
         LocalDateTime now = LocalDateTime.now(clock);
         expireVouchers(now);
@@ -144,6 +146,7 @@ public class VoucherService {
         return new ClaimVoucherResponse(true, false, code, orderId, orderAmount, discount, remainingAfter, "ok");
     }
 
+    @Transactional
     public ValidateVoucherResponse validateVoucher(ValidateVoucherRequest request) {
         String code = normalizeCode(request.code());
         BigDecimal orderAmount = request.orderAmount();
