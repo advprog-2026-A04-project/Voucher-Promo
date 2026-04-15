@@ -65,7 +65,7 @@ class VoucherClaimConcurrencyTest extends MySqlTestcontainersBase {
                 .build();
         voucherRepository.save(voucher);
 
-        int workers = 8;
+        int workers = 25;
         CountDownLatch start = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(workers);
         List<Future<Boolean>> futures = new ArrayList<>();
