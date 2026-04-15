@@ -15,7 +15,7 @@ Internal checkout endpoints:
 - `POST /vouchers/validate`
 - `POST /vouchers/claim`
 
-Admin endpoint used for demo setup:
+Admin endpoint available for manual voucher setup:
 - `POST /admin/vouchers`
 
 `/vouchers/validate` and `/vouchers/claim` require `X-Internal-Token`. `/admin/vouchers` requires `X-Admin-Token`.
@@ -24,6 +24,14 @@ Admin endpoint used for demo setup:
 
 Prerequisites:
 - Java `17+`
+
+For a demo-ready local run without MySQL, use the same `cloudrun` profile as deployment:
+
+```powershell
+$env:PORT=8085
+$env:SPRING_PROFILES_ACTIVE='cloudrun'
+.\gradlew.bat :backend:bootRun
+```
 
 Run backend:
 
@@ -55,7 +63,7 @@ Backend:
 - `ADMIN_TOKEN`
 - `APP_TIME_ZONE`
 
-Cloud Run uses the `cloudrun` profile from `backend/src/main/resources/application-cloudrun.properties`, which swaps the service to H2 for demo deployment.
+Cloud Run uses the `cloudrun` profile from `backend/src/main/resources/application-cloudrun.properties`, which swaps the service to H2 for demo deployment and seeds `MILESTONE10` automatically if it does not exist.
 
 ## Test
 
@@ -76,24 +84,15 @@ gcloud run deploy voucher-promo-api --source . --region us-central1 --allow-unau
   --set-env-vars ADMIN_TOKEN=<admin-token>
 ```
 
-## Demo Voucher Seed
+## Demo Voucher
 
-Example:
+`MILESTONE10` is seeded automatically in the `cloudrun` profile with:
+- `10%` discount
+- `minSpend=100000`
+- active start/end window relative to startup
+- initial quota `50`
 
-```bash
-curl -X POST https://voucher-promo-api-383620816191.us-central1.run.app/admin/vouchers \
-  -H "Content-Type: application/json" \
-  -H "X-Admin-Token: <admin-token>" \
-  -d '{
-    "code": "MILESTONE10",
-    "discountType": "PERCENT",
-    "discountValue": 10,
-    "startAt": "2026-04-14T12:11:53",
-    "endAt": "2026-05-15T12:11:53",
-    "minSpend": 100000,
-    "quotaTotal": 20
-  }'
-```
+Use the admin API only when you want additional vouchers beyond the default demo code.
 
 ## Notes
 
