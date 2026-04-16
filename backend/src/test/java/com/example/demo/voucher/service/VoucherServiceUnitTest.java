@@ -42,7 +42,7 @@ class VoucherServiceUnitTest {
 
     @BeforeEach
     void setUp() {
-        voucherService = new VoucherService(voucherRepository, voucherRedemptionRepository, clock);
+        voucherService = new VoucherService(voucherRepository, voucherRedemptionRepository, new VoucherPolicy(), clock);
     }
 
     @Test
