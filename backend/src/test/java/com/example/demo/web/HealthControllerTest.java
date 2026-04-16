@@ -2,6 +2,7 @@ package com.example.demo.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import java.sql.Connection;
@@ -46,6 +47,21 @@ class HealthControllerTest {
     void health_whenSQLException_returnsDown() throws Exception {
         DataSource dataSource = mock(DataSource.class);
         when(dataSource.getConnection()).thenThrow(new SQLException("db down"));
+
+        HealthController controller = new HealthController(dataSource);
+
+        ResponseEntity<Map<String, Object>> resp = controller.health();
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(resp.getBody()).containsEntry("status", "DOWN").containsEntry("db", "DOWN");
+    }
+
+    @Test
+    void health_whenConnectionCloseThrowsSQLException_returnsDown() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.isValid(2)).thenReturn(true);
+        doThrow(new SQLException("close failed")).when(connection).close();
 
         HealthController controller = new HealthController(dataSource);
 
