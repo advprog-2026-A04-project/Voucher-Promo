@@ -9,6 +9,14 @@ import org.junit.jupiter.api.Test;
 class AppConfigTest {
 
     @Test
+    void clock_whenPropertyNull_usesSystemDefaultZone() {
+        AppConfig config = new AppConfig();
+        Clock clock = config.clock(null);
+
+        assertThat(clock.getZone()).isEqualTo(ZoneId.systemDefault());
+    }
+
+    @Test
     void clock_whenPropertyBlank_usesSystemDefaultZone() {
         AppConfig config = new AppConfig();
         Clock clock = config.clock("   ");

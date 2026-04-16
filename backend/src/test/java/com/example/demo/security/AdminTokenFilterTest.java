@@ -41,6 +41,21 @@ class AdminTokenFilterTest {
     }
 
     @Test
+    void doFilter_exactAdminPath_withWrongToken_returns401() throws Exception {
+        AdminTokenFilter filter = new AdminTokenFilter("secret");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/admin");
+        request.addHeader("X-Admin-Token", "wrong");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verifyNoInteractions(chain);
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("missing or invalid admin token");
+    }
+
+    @Test
     void doFilter_nonAdminPath_skipsFilter() throws Exception {
         AdminTokenFilter filter = new AdminTokenFilter("secret");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/vouchers/active");
