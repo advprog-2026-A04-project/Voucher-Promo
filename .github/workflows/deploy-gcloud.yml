@@ -38,6 +38,7 @@ jobs:
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           APP_CORS_ALLOWED_ORIGINS: ${{ secrets.APP_CORS_ALLOWED_ORIGINS }}
+          CLOUD_SQL_INSTANCE_CONNECTION_NAME: ${{ secrets.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
           DB_URL: ${{ secrets.DB_URL }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
@@ -48,11 +49,18 @@ jobs:
             printf 'SPRING_PROFILES_ACTIVE=cloudsql\n'
             printf 'ADMIN_TOKEN=%s\n' "$ADMIN_TOKEN"
             printf 'APP_CORS_ALLOWED_ORIGINS=%s\n' "$APP_CORS_ALLOWED_ORIGINS"
+            printf 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=%s\n' "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
             printf 'DB_URL=%s\n' "$DB_URL"
             printf 'DB_USERNAME=%s\n' "$DB_USERNAME"
             printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
+            printf 'INSTANCE_CONNECTION_NAME=%s\n' "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
             printf 'INTERNAL_API_TOKEN=%s\n' "$INTERNAL_API_TOKEN"
           } > deploy.env
+
+          cloud_sql_args=()
+          if [ -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]; then
+            cloud_sql_args+=(--add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME")
+          fi
 
           gcloud run deploy "$CLOUDRUN_SERVICE" \
             --source . \
@@ -60,7 +68,8 @@ jobs:
             --region "$GCP_REGION" \
             --allow-unauthenticated \
             --max-instances=3 \
-            --env-vars-file deploy.env
+            --env-vars-file deploy.env \
+            "${cloud_sql_args[@]}"
 
       - name: Smoke test
         run: |
