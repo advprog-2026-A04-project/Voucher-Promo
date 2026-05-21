@@ -9,10 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.demo.voucher.domain.DiscountType;
 import com.example.demo.voucher.domain.Voucher;
+import com.example.demo.voucher.domain.VoucherRedemption;
 import com.example.demo.voucher.domain.VoucherStatus;
 import com.example.demo.voucher.repository.VoucherRedemptionRepository;
 import com.example.demo.voucher.repository.VoucherRepository;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,6 +108,26 @@ class VoucherApiIntegrationTest {
                 .andExpect(jsonPath("$.message").value("validation failed"))
                 .andExpect(jsonPath("$.errors.code").exists())
                 .andExpect(jsonPath("$.errors.quotaTotal").exists());
+    }
+
+    @Test
+    void getAdminVoucherRedemptions_whenRedemptionExists_returnsAuditTrail() throws Exception {
+        Voucher voucher = voucherRepository.save(activeVoucher("AUDIT10"));
+        voucherRedemptionRepository.save(VoucherRedemption.builder()
+                .voucher(voucher)
+                .orderId("ORDER-10")
+                .buyerId(1001L)
+                .orderAmount(new BigDecimal("150000.00"))
+                .discountApplied(new BigDecimal("15000.00"))
+                .claimedAt(Instant.parse("2026-05-21T00:00:00Z"))
+                .build());
+
+        mockMvc.perform(get("/admin/vouchers/redemptions")
+                        .header("X-Admin-Token", "test-admin-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code").value("AUDIT10"))
+                .andExpect(jsonPath("$[0].orderId").value("ORDER-10"))
+                .andExpect(jsonPath("$[0].buyerId").value(1001));
     }
 
     private static Voucher activeVoucher(String code) {

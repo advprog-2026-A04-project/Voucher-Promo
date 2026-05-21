@@ -455,6 +455,29 @@ class VoucherServiceUnitTest {
     }
 
     @Test
+    void claimVoucher_whenDuplicateInsertHasNoExistingRedemption_rethrowsIntegrityFailure() {
+        Voucher voucher = Voucher.builder()
+                .id(31L)
+                .code("RACE-MISS")
+                .discountType(DiscountType.FIXED)
+                .discountValue(new BigDecimal("10.00"))
+                .startAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
+                .quotaRemaining(2)
+                .status(VoucherStatus.ACTIVE)
+                .build();
+        DataIntegrityViolationException duplicate = new DataIntegrityViolationException("duplicate");
+
+        when(voucherRepository.findByCodeForUpdate("RACE-MISS")).thenReturn(Optional.of(voucher));
+        when(voucherRedemptionRepository.findByVoucherIdAndOrderId(31L, "ORDER-1")).thenReturn(Optional.empty());
+        when(voucherRedemptionRepository.save(any())).thenThrow(duplicate);
+
+        assertThatThrownBy(() -> voucherService.claimVoucher(
+                new ClaimVoucherRequest("race-miss", "ORDER-1", new BigDecimal("100.00"), null)
+        )).isSameAs(duplicate);
+    }
+
+    @Test
     void claimVoucher_whenNotUsable_returnsFailureWithReason() {
         Voucher voucher = Voucher.builder()
                 .id(40L)
