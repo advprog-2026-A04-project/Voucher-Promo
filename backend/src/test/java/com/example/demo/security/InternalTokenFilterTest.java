@@ -55,6 +55,21 @@ class InternalTokenFilterTest {
     }
 
     @Test
+    void doFilter_checkoutPath_withNullConfiguredToken_returns401() throws Exception {
+        InternalTokenFilter filter = new InternalTokenFilter(null);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/vouchers/claim");
+        request.addHeader("X-Internal-Token", "secret");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verifyNoInteractions(chain);
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("missing or invalid internal token");
+    }
+
+    @Test
     void doFilter_checkoutPath_withWrongToken_returns401() throws Exception {
         InternalTokenFilter filter = new InternalTokenFilter("secret");
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/vouchers/claim");
