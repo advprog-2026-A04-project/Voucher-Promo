@@ -27,6 +27,20 @@ class InternalTokenFilterTest {
     }
 
     @Test
+    void doFilter_checkoutPath_withBomInConfiguredToken_allowsRequest() throws Exception {
+        InternalTokenFilter filter = new InternalTokenFilter("\uFEFFsecret");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/vouchers/validate");
+        request.addHeader("X-Internal-Token", "secret");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void doFilter_checkoutPath_missingToken_returns401() throws Exception {
         InternalTokenFilter filter = new InternalTokenFilter("secret");
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/vouchers/claim");

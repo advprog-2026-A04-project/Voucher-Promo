@@ -18,7 +18,7 @@ public class InternalTokenFilter extends OncePerRequestFilter {
     private final String internalToken;
 
     public InternalTokenFilter(@Value("${app.internal-token}") String internalToken) {
-        this.internalToken = internalToken;
+        this.internalToken = sanitize(internalToken);
     }
 
     @Override
@@ -34,7 +34,7 @@ public class InternalTokenFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         String headerValue = request.getHeader("X-Internal-Token");
-        if (headerValue != null && headerValue.equals(internalToken)) {
+        if (headerValue != null && sanitize(headerValue).equals(internalToken)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -43,5 +43,12 @@ public class InternalTokenFilter extends OncePerRequestFilter {
         response.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
         response.getOutputStream().write("{\"message\":\"missing or invalid internal token\"}"
                 .getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String sanitize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\uFEFF", "").trim();
     }
 }
