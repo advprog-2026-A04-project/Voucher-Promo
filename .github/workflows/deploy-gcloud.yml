@@ -68,12 +68,14 @@ jobs:
           fi
 
           spring_profile=cloudsql
+          demo_seed_enabled=false
           if [[ "$db_url" == jdbc:h2:* || "$cloud_sql_valid" != "true" ]]; then
             if [[ "$db_url" != jdbc:h2:* && "$cloud_sql_valid" != "true" ]]; then
               echo "::warning::Cloud SQL is not configured; using demo H2 datasource."
               db_url="$default_db_url"
             fi
             spring_profile=cloudrun
+            demo_seed_enabled=true
           fi
 
           {
@@ -86,6 +88,7 @@ jobs:
             printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
             printf 'INSTANCE_CONNECTION_NAME=%s\n' "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
             printf 'INTERNAL_API_TOKEN=%s\n' "$INTERNAL_API_TOKEN"
+            printf 'APP_DEMO_SEED_ENABLED=%s\n' "$demo_seed_enabled"
           } > deploy.env
 
           cloud_sql_args=()
