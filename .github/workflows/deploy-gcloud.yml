@@ -45,12 +45,17 @@ jobs:
           INTERNAL_API_TOKEN: ${{ secrets.INTERNAL_API_TOKEN }}
         run: |
           trap 'rm -f deploy.env' EXIT
+          db_url="${DB_URL:-}"
+          while [[ "${db_url:0:1}" == "?" ]]; do
+            db_url="${db_url:1}"
+          done
+
           {
             printf 'SPRING_PROFILES_ACTIVE=cloudsql\n'
             printf 'ADMIN_TOKEN=%s\n' "$ADMIN_TOKEN"
             printf 'APP_CORS_ALLOWED_ORIGINS=%s\n' "$APP_CORS_ALLOWED_ORIGINS"
             printf 'CLOUD_SQL_INSTANCE_CONNECTION_NAME=%s\n' "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
-            printf 'DB_URL=%s\n' "$DB_URL"
+            printf 'DB_URL=%s\n' "$db_url"
             printf 'DB_USERNAME=%s\n' "$DB_USERNAME"
             printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
             printf 'INSTANCE_CONNECTION_NAME=%s\n' "$CLOUD_SQL_INSTANCE_CONNECTION_NAME"
