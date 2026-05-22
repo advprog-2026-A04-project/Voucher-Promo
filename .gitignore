@@ -39,3 +39,8 @@ out/
 # Local-only artifacts created by Koyeb debug scripts
 .tmp-koyeb-*
 .tmp/
+
+gha-creds-*.json
+key.json
+sa-key.json
+service-account*.json

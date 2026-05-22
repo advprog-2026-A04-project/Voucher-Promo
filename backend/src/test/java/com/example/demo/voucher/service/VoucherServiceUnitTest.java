@@ -122,6 +122,40 @@ class VoucherServiceUnitTest {
     }
 
     @Test
+    void getRedemptionAuditTrail_mapsRedemptionsForAdminReview() {
+        Voucher voucher = Voucher.builder()
+                .id(9L)
+                .code("AUDIT10")
+                .discountType(DiscountType.FIXED)
+                .discountValue(new BigDecimal("10.00"))
+                .startAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
+                .quotaTotal(5)
+                .quotaRemaining(4)
+                .status(VoucherStatus.ACTIVE)
+                .version(0L)
+                .build();
+        VoucherRedemption redemption = VoucherRedemption.builder()
+                .id(77L)
+                .voucher(voucher)
+                .orderId("ORDER-77")
+                .buyerId(1001L)
+                .orderAmount(new BigDecimal("100000.00"))
+                .discountApplied(new BigDecimal("10000.00"))
+                .claimedAt(Instant.parse("2026-02-19T00:00:00Z"))
+                .build();
+        when(voucherRedemptionRepository.findAllByOrderByClaimedAtDesc()).thenReturn(List.of(redemption));
+
+        var auditTrail = voucherService.getRedemptionAuditTrail();
+
+        assertThat(auditTrail).hasSize(1);
+        assertThat(auditTrail.get(0).code()).isEqualTo("AUDIT10");
+        assertThat(auditTrail.get(0).orderId()).isEqualTo("ORDER-77");
+        assertThat(auditTrail.get(0).buyerId()).isEqualTo(1001L);
+        assertThat(auditTrail.get(0).discountApplied()).isEqualTo(new BigDecimal("10000.00"));
+    }
+
+    @Test
     void validateVoucher_whenNotFound_returnsInvalid() {
         when(voucherRepository.findByCode("MISSING")).thenReturn(Optional.empty());
 
@@ -418,6 +452,29 @@ class VoucherServiceUnitTest {
         assertThat(resp.success()).isTrue();
         assertThat(resp.idempotent()).isTrue();
         assertThat(resp.message()).isEqualTo("already claimed for this orderId");
+    }
+
+    @Test
+    void claimVoucher_whenDuplicateInsertHasNoExistingRedemption_rethrowsIntegrityFailure() {
+        Voucher voucher = Voucher.builder()
+                .id(31L)
+                .code("RACE-MISS")
+                .discountType(DiscountType.FIXED)
+                .discountValue(new BigDecimal("10.00"))
+                .startAt(LocalDateTime.parse("2026-02-18T00:00:00"))
+                .endAt(LocalDateTime.parse("2026-02-20T00:00:00"))
+                .quotaRemaining(2)
+                .status(VoucherStatus.ACTIVE)
+                .build();
+        DataIntegrityViolationException duplicate = new DataIntegrityViolationException("duplicate");
+
+        when(voucherRepository.findByCodeForUpdate("RACE-MISS")).thenReturn(Optional.of(voucher));
+        when(voucherRedemptionRepository.findByVoucherIdAndOrderId(31L, "ORDER-1")).thenReturn(Optional.empty());
+        when(voucherRedemptionRepository.save(any())).thenThrow(duplicate);
+
+        assertThatThrownBy(() -> voucherService.claimVoucher(
+                new ClaimVoucherRequest("race-miss", "ORDER-1", new BigDecimal("100.00"), null)
+        )).isSameAs(duplicate);
     }
 
     @Test

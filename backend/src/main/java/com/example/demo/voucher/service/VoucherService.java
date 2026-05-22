@@ -8,6 +8,7 @@ import com.example.demo.voucher.api.dto.EditVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherRequest;
 import com.example.demo.voucher.api.dto.ValidateVoucherResponse;
 import com.example.demo.voucher.api.dto.VoucherPublicResponse;
+import com.example.demo.voucher.api.dto.VoucherRedemptionAuditResponse;
 import com.example.demo.voucher.domain.DiscountType;
 import com.example.demo.voucher.domain.Voucher;
 import com.example.demo.voucher.domain.VoucherRedemption;
@@ -77,6 +78,23 @@ public class VoucherService {
 
         return vouchers.stream()
                 .map(VoucherService::toCreateVoucherResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<VoucherRedemptionAuditResponse> getRedemptionAuditTrail() {
+        return voucherRedemptionRepository.findAllByOrderByClaimedAtDesc()
+                .stream()
+                .map(redemption -> new VoucherRedemptionAuditResponse(
+                        redemption.getId(),
+                        redemption.getVoucher().getId(),
+                        redemption.getVoucher().getCode(),
+                        redemption.getOrderId(),
+                        redemption.getBuyerId(),
+                        redemption.getOrderAmount(),
+                        redemption.getDiscountApplied(),
+                        redemption.getClaimedAt()
+                ))
                 .toList();
     }
 
