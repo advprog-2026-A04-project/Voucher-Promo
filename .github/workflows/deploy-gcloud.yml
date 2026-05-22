@@ -59,7 +59,12 @@ jobs:
 
           cloud_sql_args=()
           if [ -n "${CLOUD_SQL_INSTANCE_CONNECTION_NAME:-}" ]; then
-            cloud_sql_args+=(--add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME")
+            if [[ "$CLOUD_SQL_INSTANCE_CONNECTION_NAME" =~ ^[a-zA-Z0-9-]+:[a-zA-Z0-9-]+:[a-z][a-z0-9-]*$ ]] &&
+              [ "${#CLOUD_SQL_INSTANCE_CONNECTION_NAME}" -le 97 ]; then
+              cloud_sql_args+=(--add-cloudsql-instances "$CLOUD_SQL_INSTANCE_CONNECTION_NAME")
+            else
+              echo "::warning::Skipping invalid CLOUD_SQL_INSTANCE_CONNECTION_NAME value."
+            fi
           fi
 
           project_id="${GOOGLE_CLOUD_PROJECT:-${CLOUDSDK_CORE_PROJECT}}"
