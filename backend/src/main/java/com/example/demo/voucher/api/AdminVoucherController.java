@@ -3,6 +3,7 @@ package com.example.demo.voucher.api;
 import com.example.demo.voucher.api.dto.CreateVoucherRequest;
 import com.example.demo.voucher.api.dto.CreateVoucherResponse;
 import com.example.demo.voucher.api.dto.EditVoucherRequest;
+import com.example.demo.voucher.api.dto.VoucherRedemptionAuditResponse;
 import com.example.demo.voucher.domain.VoucherStatus;
 import com.example.demo.voucher.service.VoucherService;
 import jakarta.validation.Valid;
@@ -37,6 +38,11 @@ public class AdminVoucherController {
     @GetMapping
     public List<CreateVoucherResponse> listVouchers(@RequestParam(value = "status", required = false) VoucherStatus status) {
         return voucherService.getAdminVouchers(status);
+    }
+
+    @GetMapping("/redemptions")
+    public List<VoucherRedemptionAuditResponse> listVoucherRedemptions() {
+        return voucherService.getRedemptionAuditTrail();
     }
 
     @PutMapping("/{id}")

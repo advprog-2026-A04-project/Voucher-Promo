@@ -25,6 +25,6 @@ WORKDIR /app
 COPY --from=backend-build /app/backend/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 ENV JAVA_OPTS=""
-ENV SPRING_PROFILES_ACTIVE="cloudrun"
+ENV SPRING_PROFILES_ACTIVE="cloudsql"
 CMD ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
 
