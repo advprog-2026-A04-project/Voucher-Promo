@@ -69,6 +69,134 @@ Cloud Run uses the `cloudsql` profile and must receive Cloud SQL/MySQL
 credentials through environment variables or Secret Manager. H2 is not used for
 runtime deployments.
 
+## Design Patterns
+
+### Repository Pattern
+
+Persistence access is isolated behind Spring Data repository interfaces. The
+service layer depends on these abstractions instead of issuing database queries
+directly.
+
+Source: [`VoucherRepository.java`](backend/src/main/java/com/example/demo/voucher/repository/VoucherRepository.java)
+
+```java
+public interface VoucherRepository extends JpaRepository<Voucher, Long> {
+    Optional<Voucher> findByCode(String code);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Voucher v WHERE v.code = :code")
+    Optional<Voucher> findByCodeForUpdate(@Param("code") String code);
+}
+```
+
+This pattern keeps persistence concerns separate from business rules and makes
+the service testable with mocked repositories.
+
+### Domain Policy Pattern
+
+Voucher eligibility and discount rules are centralized in a dedicated policy
+component instead of being duplicated across API handlers.
+
+Source: [`VoucherPolicy.java`](backend/src/main/java/com/example/demo/voucher/service/VoucherPolicy.java)
+
+```java
+@Component
+public class VoucherPolicy {
+    public String validateVoucherUsability(
+            Voucher voucher,
+            BigDecimal orderAmount,
+            LocalDateTime now
+    ) {
+        if (voucher.getStatus() != VoucherStatus.ACTIVE) {
+            return "voucher inactive";
+        }
+        if (voucher.getQuotaRemaining() <= 0) {
+            return "voucher quota exhausted";
+        }
+        return null;
+    }
+}
+```
+
+The complete policy also handles active windows, minimum spend, definition
+validation, editable state, code normalization, and discount calculation.
+
+### Service Layer Pattern
+
+REST controllers remain thin. Transaction boundaries and checkout-oriented
+voucher workflows live in the service layer.
+
+Sources:
+[`VoucherController.java`](backend/src/main/java/com/example/demo/voucher/api/VoucherController.java),
+[`VoucherService.java`](backend/src/main/java/com/example/demo/voucher/service/VoucherService.java)
+
+```java
+@PostMapping("/claim")
+public ClaimVoucherResponse claimVoucher(
+        @Valid @RequestBody ClaimVoucherRequest request
+) {
+    return voucherService.claimVoucher(request);
+}
+
+@Transactional
+public ClaimVoucherResponse claimVoucher(ClaimVoucherRequest request) {
+    Voucher voucher = voucherRepository.findByCodeForUpdate(code).orElse(null);
+    // Apply idempotency, policy checks, and quota mutation.
+}
+```
+
+### Builder Pattern
+
+Voucher domain objects use Lombok's Builder Pattern to keep object construction
+readable in service code and tests.
+
+Source: [`Voucher.java`](backend/src/main/java/com/example/demo/voucher/domain/Voucher.java)
+
+```java
+@Builder
+public class Voucher {
+    private String code;
+    private DiscountType discountType;
+    private BigDecimal discountValue;
+    private Integer quotaRemaining;
+}
+```
+
+## TDD-Oriented Development
+
+The module is developed with a TDD-oriented workflow: behavior is protected by
+unit, integration, concurrency, and regression tests. The repository history
+contains tests added alongside features and tests added after defects were
+found. This is intentionally described as **TDD-oriented**, rather than
+claiming that every historical commit followed a strict red-green-refactor
+cycle.
+
+Example idempotency regression test:
+[`VoucherClaimIdempotencyTest.java`](backend/src/test/java/com/example/demo/voucher/VoucherClaimIdempotencyTest.java)
+
+```java
+ClaimVoucherResponse first = voucherService.claimVoucher(req);
+ClaimVoucherResponse second = voucherService.claimVoucher(req);
+
+assertThat(first.idempotent()).isFalse();
+assertThat(second.idempotent()).isTrue();
+assertThat(reloaded.getQuotaRemaining()).isEqualTo(1);
+```
+
+Additional evidence:
+- [`VoucherPolicyTest.java`](backend/src/test/java/com/example/demo/voucher/service/VoucherPolicyTest.java)
+  covers domain policy behavior.
+- [`VoucherClaimConcurrencyTest.java`](backend/src/test/java/com/example/demo/voucher/VoucherClaimConcurrencyTest.java)
+  submits parallel claims and verifies that quota cannot become negative.
+- [`VoucherApiIntegrationTest.java`](backend/src/test/java/com/example/demo/voucher/api/VoucherApiIntegrationTest.java)
+  verifies public and admin HTTP contracts.
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs tests and JaCoCo
+  verification on pushes and pull requests.
+
+The current JaCoCo gate requires `100%` line coverage and at least `90%` branch
+coverage. Fresh local verification on May 31, 2026 passed `83` tests with
+`100%` line coverage and `94.87%` branch coverage.
+
 ## Test
 
 ```bash
